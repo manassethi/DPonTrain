@@ -1,0 +1,8 @@
+# Confidential booking records: never commit
+data/private/
+
+__pycache__/
+.ipynb_checkpoints/
+.pytest_cache/
+.venv/
+venv/
