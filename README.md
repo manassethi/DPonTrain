@@ -7,6 +7,8 @@
 - compares pricing methods on unseen departures;
 - extends pricing to the train's network of origin–destination journeys with bid prices.
 
+**[Try the interactive pricing demo →](https://manassethi.github.io/DPonTrain/demo/)**
+
 > **Headline:** classic **forecast + optimize** pricing (dynamic programming) earns **+2% to +14% more revenue per departure** than a fixed fare in simulation. That is 95–100% of the theoretical best. Reinforcement learning (Q-learning) captures only 14–76%. On the multi-stop train, **network bid prices add up to +8.5%** over pricing each journey separately. **Valuing each passenger carried** keeps ridership at today's level while still earning **+5.5% to +9.2%**.
 
 ---
@@ -154,9 +156,9 @@ One 3A berth is often sold two or three times per run: Firozpur → Delhi, then 
 
 ---
 
-## Interactive demo: [`demo/index.html`](demo/index.html)
+## Interactive demo: **[open the live demo](https://manassethi.github.io/DPonTrain/demo/)**
 
-A single-page simulator that runs in the browser, with no install. Pick a real departure from the test year, then set:
+A single-page simulator ([`demo/index.html`](demo/index.html)) that runs in the browser, with no install. Pick a real departure from the test year, then set:
 - how price-sensitive passengers are;
 - demand vs capacity;
 - what the pricer knows (forecast only, daily re-forecast, or true demand);
@@ -168,7 +170,7 @@ The page shows, against the fixed fare and on the same simulated customers:
 - the dynamic program's full fare table, with the path the departure took;
 - who paid what.
 
-It uses the measured booking curve and each test departure's demand level and forecast. Its dynamic program reproduces `pricing_sim.optimal_fares` exactly. Open the file in any browser, or download it and double-click.
+It uses the measured booking curve and each test departure's demand level and forecast. Its dynamic program reproduces `pricing_sim.optimal_fares` exactly.
 
 ---
 
