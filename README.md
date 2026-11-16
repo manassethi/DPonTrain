@@ -154,6 +154,24 @@ One 3A berth is often sold two or three times per run: Firozpur → Delhi, then 
 
 ---
 
+## Interactive demo: [`demo/index.html`](demo/index.html)
+
+A single-page simulator that runs in the browser, with no install. Pick a real departure from the test year, then set:
+- how price-sensitive passengers are;
+- demand vs capacity;
+- what the pricer knows (forecast only, daily re-forecast, or true demand);
+- the value placed on each passenger carried, and a fare cap.
+
+The page shows, against the fixed fare and on the same simulated customers:
+- the fare set each day;
+- seats left;
+- the dynamic program's full fare table, with the path the departure took;
+- who paid what.
+
+It uses the measured booking curve and each test departure's demand level and forecast. Its dynamic program reproduces `pricing_sim.optimal_fares` exactly. Open the file in any browser, or download it and double-click.
+
+---
+
 ## Limitations
 
 - **Price elasticity is assumed.** Fares never changed in the data. A controlled fare test, or natural experiments such as Tatkal premiums and flexi-fare trains, would measure it.
@@ -168,6 +186,8 @@ One 3A berth is often sold two or three times per run: Firozpur → Delhi, then 
 ```
 ├── data/
 │   └── route_12138.csv           # stops and distances (public timetable)
+├── demo/
+│   └── index.html                # interactive pricing simulator (runs in the browser)
 ├── notebooks/
 │   ├── 01_demand_forecasting.ipynb
 │   ├── 02_pricing_engine.ipynb

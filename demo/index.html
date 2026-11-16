@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DPonTrain Fare Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a controls rail beside a results column (stacks on phones); timetable-style type, fares coloured on a discount-to-premium scale */
+:root {
+  --bg: #f4f6f9; --panel: #ffffff; --ink: #16202d; --muted: #5b6778; --line: #d8dee6; --grid: #e8ecf1;
+  --opt: #1d4fc4; --fixed: #8b95a4; --good: #1b7a4e; --bad: #b2432b; --chip: #eaf0fa; --chip-ink: #1d3f8f;
+  --f0: #23868a; --f1: #86c6bf; --f2: #d8d0bf; --f3: #f1bd66; --f4: #e2803c; --f5: #b5422a;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141b; --panel: #161d26; --ink: #e5eaf1; --muted: #9ba7b7; --line: #2a3441; --grid: #1f2833;
+    --opt: #7fa3ff; --fixed: #77828f; --good: #5cc390; --bad: #f08b70; --chip: #1c2a44; --chip-ink: #b5c8ff;
+    --f0: #45b4ae; --f1: #2c726e; --f2: #8a8273; --f3: #9d7533; --f4: #d27e3d; --f5: #f0654b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141b; --panel: #161d26; --ink: #e5eaf1; --muted: #9ba7b7; --line: #2a3441; --grid: #1f2833;
+  --opt: #7fa3ff; --fixed: #77828f; --good: #5cc390; --bad: #f08b70; --chip: #1c2a44; --chip-ink: #b5c8ff;
+  --f0: #45b4ae; --f1: #2c726e; --f2: #8a8273; --f3: #9d7533; --f4: #d27e3d; --f5: #f0654b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--font-head); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 19px; font-weight: 600; }
+h3 { font-size: 15px; font-weight: 600; }
+.eyebrow { font: 500 12px/1.3 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { color: var(--muted); max-width: 70ch; margin: 8px 0 0; }
+header { display: grid; gap: 6px; margin-bottom: 18px; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.scenarios { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 22px; }
+.scenarios .label { font-size: 13px; color: var(--muted); margin-right: 4px; }
+.chip { font: 500 13px/1.2 var(--font-body); padding: 7px 12px; border-radius: 999px; border: 1px solid transparent;
+  background: var(--chip); color: var(--chip-ink); cursor: pointer; }
+.chip:hover { border-color: var(--chip-ink); }
+.chip[aria-pressed="true"] { background: var(--chip-ink); color: var(--panel); }
+
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+aside.panel { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: grid; gap: 18px; }
+@media (max-width: 900px) { aside.panel { position: static; } }
+
+.ctl { display: grid; gap: 6px; }
+.ctl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ctl label, .ctl .lbl { font-weight: 600; font-size: 14px; }
+.ctl .val { font: 500 14px var(--font-mono); color: var(--opt); white-space: nowrap; }
+.hint { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+input[type="range"] { width: 100%; accent-color: var(--opt); }
+select { width: 100%; font: 14px var(--font-body); padding: 7px 8px; border-radius: 7px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); }
+.quick { display: flex; gap: 6px; flex-wrap: wrap; }
+.quick button, .btn { font: 500 13px var(--font-body); padding: 6px 10px; border-radius: 7px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); cursor: pointer; }
+.quick button:hover, .btn:hover { border-color: var(--opt); }
+.seg { display: grid; gap: 6px; }
+.seg label { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; font-size: 14px; padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 7px; cursor: pointer; }
+.seg label:has(input:checked) { border-color: var(--opt); background: var(--chip); }
+.seg input { margin-top: 3px; accent-color: var(--opt); }
+.seg small { display: block; color: var(--muted); font-size: 12px; }
+.depfacts { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.depfacts b { color: var(--ink); font: 500 13px var(--font-mono); }
+:focus-visible { outline: 2px solid var(--opt); outline-offset: 2px; }
+
+.results { display: grid; gap: 18px; min-width: 0; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.kpi .k { font-size: 12.5px; color: var(--muted); }
+.kpi .v { font: 500 26px/1.1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.kpi .s { font-size: 12.5px; color: var(--muted); }
+.pos { color: var(--good); } .neg { color: var(--bad); }
+
+.story { font-size: 15px; line-height: 1.6; max-width: 80ch; margin: 0; }
+.story b { font-weight: 600; }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid var(--opt); vertical-align: middle; margin-right: 6px; }
+.legend i.fx { border-top: 2px dashed var(--fixed); }
+.legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
+svg .gridline { stroke: var(--grid); stroke-width: 1; }
+svg .axis { stroke: var(--line); stroke-width: 1; }
+svg .opt { stroke: var(--opt); fill: none; stroke-width: 2.5; stroke-linejoin: round; }
+svg .fixed { stroke: var(--fixed); fill: none; stroke-width: 2; stroke-dasharray: 5 4; }
+svg .ann { fill: var(--ink); font-family: var(--font-body); font-size: 11.5px; }
+.two { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 1100px) { .two { grid-template-columns: minmax(0, 1fr); } }
+.seats { display: grid; gap: 14px; }
+.seatgrid { max-width: 420px; display: grid; grid-template-columns: repeat(15, minmax(0, 1fr)); gap: 3px; }
+.seatgrid span { aspect-ratio: 1; border-radius: 3px; border: 1px solid transparent; max-width: 100%; }
+.seatgrid span.empty { border: 1px dashed var(--line); background: transparent; }
+.f0 { background: var(--f0); } .f1 { background: var(--f1); } .f2 { background: var(--f2); }
+.f3 { background: var(--f3); } .f4 { background: var(--f4); } .f5 { background: var(--f5); }
+.cap { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+
+.how { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+@media (max-width: 900px) { .how { grid-template-columns: minmax(0, 1fr); } }
+.formula { font: 14px/1.6 var(--font-mono); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+.how ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 5px; }
+.how p { margin: 8px 0 0; }
+.tag { font: 500 10.5px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+.tag.real { background: var(--chip); color: var(--chip-ink); }
+.tag.assumed { background: var(--f3); color: var(--ink); }
+.busy { opacity: 0.55; transition: opacity 0.15s; }
+@media (prefers-reduced-motion: reduce) { .busy { transition: none; } }
+footer { margin-top: 22px; font-size: 12.5px; color: var(--muted); }
+footer a { color: var(--opt); }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Train 12138 Punjab Mail · Firozpur → Mumbai CSMT · one 3A coach, 90 seats</div>
+    <h1>DPonTrain Fare Simulator</h1>
+    <p class="lede">Pick a real departure from the test year, set how price-sensitive passengers are, and watch a dynamic-programming pricer set the fare every day of the 60-day booking window. It faces exactly the same customers as today's fixed ₹1,100 fare.</p>
+  </header>
+
+  <div class="scenarios" id="scenarios"><span class="label">Try a scenario:</span></div>
+
+  <div class="layout">
+    <aside class="panel" aria-label="Simulation settings">
+      <div class="ctl">
+        <label for="dep">Departure</label>
+        <select id="dep"></select>
+        <div class="quick">
+          <button type="button" data-q="quiet">Quiet day</button>
+          <button type="button" data-q="avg">Average day</button>
+          <button type="button" data-q="busy">Busy day</button>
+        </div>
+        <div class="depfacts" id="depfacts"></div>
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head"><label for="eps">Price sensitivity (elasticity)</label><span class="val" id="eps-v"></span></div>
+        <input type="range" id="eps" min="0.6" max="2.0" step="0.1" value="1.2">
+        <div class="hint" id="eps-h"></div>
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head"><label for="d0">Demand at ₹1,100</label><span class="val" id="d0-v"></span></div>
+        <input type="range" id="d0" min="55" max="120" step="5" value="75">
+        <div class="hint">Bookings an average departure would get over the whole window at the base fare, for 90 seats.</div>
+      </div>
+
+      <div class="ctl">
+        <span class="lbl" id="pricer-l">What the pricer knows</span>
+        <div class="seg" role="radiogroup" aria-labelledby="pricer-l">
+          <label><input type="radio" name="pricer" value="forecast" id="pr-f"><span>Forecast only<small>Plans on the calendar forecast made before booking opens</small></span></label>
+          <label><input type="radio" name="pricer" value="reforecast" id="pr-r" checked><span>Forecast + daily re-forecast<small>Updates its demand estimate from bookings so far</small></span></label>
+          <label><input type="radio" name="pricer" value="ceiling" id="pr-c"><span>Knows true demand<small>The perfect-information ceiling, not achievable</small></span></label>
+        </div>
+      </div>
+
+      <div class="ctl">
+        <div class="ctl-head"><label for="sv">Value of each passenger carried</label><span class="val" id="sv-v"></span></div>
+        <input type="range" id="sv" min="0" max="1500" step="100" value="0">
+        <div class="hint">A fairness guard-rail: the pricer counts this on top of the fare, so it gives up some revenue to carry more people.</div>
+      </div>
+
+      <div class="ctl">
+        <label for="cap">Highest fare allowed</label>
+        <select id="cap">
+          <option value="5">+30% (₹1,430)</option>
+          <option value="4">+20% (₹1,320)</option>
+          <option value="3">+10% (₹1,210)</option>
+          <option value="2">No increase (₹1,100)</option>
+        </select>
+      </div>
+
+      <div class="ctl">
+        <span class="lbl">Customers</span>
+        <div class="quick"><button type="button" class="btn" id="reseed">Draw new customers</button><span class="hint" id="seed-l" style="align-self:center"></span></div>
+        <div class="hint">Both pricing methods always see the same customers, so differences come from the fares, not luck.</div>
+      </div>
+    </aside>
+
+    <section class="results" id="results" aria-live="polite">
+      <div class="kpis">
+        <div class="kpi"><span class="k">Extra revenue, this booking window</span><span class="v" id="k1"></span><span class="s" id="k1s"></span></div>
+        <div class="kpi"><span class="k">Expected gain, 600 simulated windows</span><span class="v" id="k2"></span><span class="s" id="k2s"></span></div>
+        <div class="kpi"><span class="k">Passengers carried</span><span class="v" id="k3"></span><span class="s" id="k3s"></span></div>
+        <div class="kpi"><span class="k">Average fare paid</span><span class="v" id="k4"></span><span class="s" id="k4s"></span></div>
+      </div>
+
+      <div class="panel"><p class="story" id="story"></p></div>
+
+      <div class="panel">
+        <div class="chart-head">
+          <h2>Fare set each day</h2>
+          <div class="legend"><span><i></i>Dynamic pricer</span><span><i class="fx"></i>Fixed fare today</span></div>
+        </div>
+        <svg id="fareChart" viewBox="0 0 720 270" role="img" aria-label="Fare chosen on each day of the booking window"></svg>
+      </div>
+
+      <div class="panel">
+        <div class="chart-head">
+          <h2>Seats left</h2>
+          <div class="legend"><span><i></i>Dynamic pricer</span><span><i class="fx"></i>Fixed fare today</span></div>
+        </div>
+        <svg id="seatChart" viewBox="0 0 720 210" role="img" aria-label="Seats left on each day of the booking window"></svg>
+      </div>
+
+      <div class="two">
+        <div class="panel">
+          <div class="chart-head"><h2>The pricer's fare table</h2></div>
+          <svg id="heat" viewBox="0 0 640 330" role="img" aria-label="Best fare for every combination of days and seats left"></svg>
+          <div class="legend" id="fareLegend" style="margin-top:8px"></div>
+          <p class="cap" id="heatCap"></p>
+        </div>
+        <div class="panel seats">
+          <div class="chart-head"><h2>Who paid what</h2></div>
+          <div><h3>Dynamic pricer</h3><div class="seatgrid" id="gridOpt" aria-label="Seats sold by the dynamic pricer, coloured by fare paid"></div><p class="cap" id="gridOptCap"></p></div>
+          <div><h3>Fixed fare today</h3><div class="seatgrid" id="gridFix" aria-label="Seats sold at the fixed fare"></div><p class="cap" id="gridFixCap"></p></div>
+        </div>
+      </div>
+
+      <div class="panel how">
+        <div>
+          <h2>How the simulator works</h2>
+          <p>Each day d before departure, expected bookings are</p>
+          <div class="formula">λ = D₀ × level × curve[d] × (fare ÷ ₹1,100)<sup>−ε</sup></div>
+          <p>and actual bookings are a Poisson draw from λ, capped at the seats left.</p>
+          <ul>
+            <li><span class="tag real">Real</span>curve[d]: share of 3A passengers booking d days out, journeys Mar–Jul 2025.</li>
+            <li><span class="tag real">Real</span>level: how busy each departure was vs an average day, and the calendar forecast available before booking opened.</li>
+            <li><span class="tag assumed">Assumed</span>D₀ and the elasticity ε. Fares never changed in the data, so these are scenarios.</li>
+          </ul>
+          <p>The pricer solves V(d, s) = max over fares of E[fare × bookings + V(d − 1, s − bookings)] backwards from departure, giving the best fare for every combination of days and seats left.</p>
+        </div>
+        <div>
+          <h3>When 3A passengers book</h3>
+          <svg id="curveChart" viewBox="0 0 520 200" role="img" aria-label="Share of passengers booking each day before departure"></svg>
+          <p class="cap" id="curveCap"></p>
+        </div>
+      </div>
+    </section>
+  </div>
+  <footer>Simulation, not a revenue forecast. Model and analysis: <a href="https://github.com/manassethi/DPonTrain">github.com/manassethi/DPonTrain</a>.</footer>
+</div>
+
+<script>
+const DATA = {"curve":[0.154223,0.266663,0.02964,0.025908,0.024531,0.023043,0.020328,0.020301,0.017852,0.017095,0.015812,0.014114,0.013227,0.013057,0.011317,0.010403,0.010287,0.01043,0.009236,0.009127,0.00882,0.00897,0.00777,0.006835,0.007299,0.007879,0.006392,0.006842,0.006058,0.005771,0.006767,0.005573,0.005648,0.005737,0.005089,0.005041,0.004898,0.00453,0.005103,0.005171,0.004345,0.004182,0.004761,0.003936,0.003575,0.004216,0.003711,0.004618,0.003943,0.004229,0.003922,0.004332,0.004298,0.004734,0.004605,0.004939,0.006453,0.007552,0.00983,0.016495,0.048536],"departures":[["2024-08-01",0.872,0.866],["2024-08-02",0.887,0.945],["2024-08-03",1.036,1.027],["2024-08-04",0.943,0.935],["2024-08-05",0.891,0.923],["2024-08-06",0.904,0.898],["2024-08-07",0.865,0.946],["2024-08-08",0.83,0.942],["2024-08-09",0.972,1.051],["2024-08-10",1.003,1.042],["2024-08-11",0.936,0.943],["2024-08-12",0.9,0.987],["2024-08-13",0.892,0.971],["2024-08-14",1.104,0.965],["2024-08-15",0.981,0.935],["2024-08-16",1.122,1.0],["2024-08-17",1.228,1.06],["2024-08-18",1.072,0.969],["2024-08-19",1.193,0.929],["2024-08-20",1.096,0.887],["2024-08-21",1.01,0.912],["2024-08-22",0.933,0.921],["2024-08-23",1.03,1.008],["2024-08-24",1.071,1.079],["2024-08-25",0.896,0.994],["2024-08-26",0.971,1.024],["2024-08-27",0.897,0.979],["2024-08-28",0.898,0.964],["2024-08-29",0.873,0.98],["2024-08-30",0.936,0.996],["2024-08-31",1.009,1.123],["2024-09-01",0.964,1.014],["2024-09-02",0.927,0.955],["2024-09-03",0.893,0.941],["2024-09-04",0.907,0.954],["2024-09-05",0.68,0.881],["2024-09-06",0.874,0.965],["2024-09-07",0.967,1.048],["2024-09-08",0.965,1.025],["2024-09-09",0.855,0.968],["2024-09-10",0.841,0.948],["2024-09-11",0.921,0.957],["2024-09-12",0.867,0.957],["2024-09-13",0.979,1.006],["2024-09-14",1.063,1.06],["2024-09-15",0.969,0.995],["2024-09-16",0.94,0.957],["2024-09-17",0.911,0.933],["2024-09-18",0.994,0.934],["2024-09-19",0.846,0.945],["2024-09-20",0.897,1.025],["2024-09-21",0.944,1.075],["2024-09-22",0.919,0.976],["2024-09-23",0.893,0.973],["2024-09-24",0.869,0.962],["2024-09-25",0.895,1.021],["2024-09-26",0.912,0.962],["2024-09-27",0.939,1.021],["2024-09-28",1.005,1.076],["2024-09-29",0.919,1.044],["2024-09-30",0.897,0.986],["2024-10-01",0.928,0.94],["2024-10-02",0.938,0.942],["2024-10-03",0.822,0.928],["2024-10-04",0.895,0.984],["2024-10-05",1.049,1.067],["2024-10-06",0.91,0.955],["2024-10-07",0.85,0.953],["2024-10-08",0.861,0.908],["2024-10-09",0.874,0.892],["2024-10-10",0.824,0.933],["2024-10-11",0.988,0.94],["2024-10-12",1.044,1.021],["2024-10-13",0.987,0.95],["2024-10-14",0.882,0.932],["2024-10-15",0.881,0.918],["2024-10-16",0.865,0.875],["2024-10-17",0.796,0.92],["2024-10-18",0.906,1.037],["2024-10-19",0.866,1.035],["2024-10-20",0.814,0.929],["2024-10-21",0.862,0.942],["2024-10-22",0.768,0.972],["2024-10-23",0.82,0.967],["2024-10-24",0.774,0.938],["2024-10-25",0.955,0.994],["2024-10-26",1.034,1.035],["2024-10-27",0.87,0.941],["2024-10-28",0.745,0.888],["2024-10-29",0.854,0.88],["2024-10-30",0.768,0.875],["2024-10-31",0.432,0.916],["2024-11-01",0.794,0.968],["2024-11-02",1.224,1.046],["2024-11-03",1.217,0.95],["2024-11-04",1.091,0.914],["2024-11-05",1.037,0.878],["2024-11-06",1.05,0.945],["2024-11-07",1.058,0.95],["2024-11-08",1.109,1.026],["2024-11-09",1.179,0.946],["2024-11-10",1.082,0.81],["2024-11-11",1.043,0.973],["2024-11-12",0.988,1.011],["2024-11-13",1.063,1.033],["2024-11-14",1.123,0.988],["2024-11-15",1.058,1.134],["2024-11-16",1.206,1.211],["2024-11-17",1.099,1.096],["2024-11-18",1.026,1.051],["2024-11-19",1.025,1.006],["2024-11-20",1.077,1.03],["2024-11-21",1.005,1.009],["2024-11-22",1.073,1.102],["2024-11-23",1.176,1.195],["2024-11-24",1.088,1.118],["2024-11-25",1.058,1.083],["2024-11-26",1.027,1.071],["2024-11-27",1.076,1.061],["2024-11-28",0.993,1.041],["2024-11-29",1.111,1.105],["2024-11-30",1.188,1.174],["2024-12-01",1.142,1.055],["2024-12-02",1.051,1.042],["2024-12-03",1.068,1.012],["2024-12-04",1.069,1.053],["2024-12-05",1.02,1.053],["2024-12-06",1.091,1.108],["2024-12-07",1.215,1.189],["2024-12-08",1.062,1.078],["2024-12-09",1.059,1.031],["2024-12-10",1.057,1.03],["2024-12-11",1.053,1.025],["2024-12-12",1.036,0.997],["2024-12-13",1.129,1.104],["2024-12-14",1.253,1.145],["2024-12-15",1.118,1.028],["2024-12-16",1.075,1.032],["2024-12-17",1.077,1.006],["2024-12-18",0.993,1.043],["2024-12-19",1.013,1.05],["2024-12-20",1.154,1.131],["2024-12-21",1.227,1.179],["2024-12-22",1.098,1.127],["2024-12-23",1.169,1.073],["2024-12-24",1.182,1.016],["2024-12-25",1.115,1.012],["2024-12-26",1.112,1.01],["2024-12-27",1.103,1.06],["2024-12-28",1.231,1.087],["2024-12-29",1.177,1.007],["2024-12-30",1.078,1.04],["2024-12-31",1.003,1.002],["2025-01-01",1.14,0.998],["2025-01-02",1.108,0.975],["2025-01-03",1.106,1.025],["2025-01-04",1.247,1.107],["2025-01-05",1.098,0.984],["2025-01-06",1.03,0.955],["2025-01-07",1.02,0.927],["2025-01-08",0.971,0.914],["2025-01-09",0.92,0.916],["2025-01-10",0.979,0.995],["2025-01-11",1.075,1.056],["2025-01-12",0.919,0.981],["2025-01-13",0.915,0.954],["2025-01-14",1.028,0.936],["2025-01-15",0.969,0.934],["2025-01-16",0.947,0.923],["2025-01-17",1.022,0.979],["2025-01-18",1.076,1.042],["2025-01-19",0.966,0.933],["2025-01-20",0.886,0.879],["2025-01-21",0.892,0.884],["2025-01-22",0.872,0.938],["2025-01-23",0.827,0.954],["2025-01-24",0.972,0.982],["2025-01-25",1.043,1.053],["2025-01-26",0.983,0.993],["2025-01-27",0.887,0.963],["2025-01-28",0.861,0.939],["2025-01-29",0.885,0.955],["2025-01-30",0.895,0.971],["2025-01-31",0.943,1.024],["2025-02-01",1.013,1.091],["2025-02-02",1.013,1.017],["2025-02-03",1.017,0.985],["2025-02-04",1.004,0.959],["2025-02-05",1.004,0.934],["2025-02-06",0.969,0.907],["2025-02-07",1.042,0.998],["2025-02-08",1.136,1.052],["2025-02-09",1.025,0.96],["2025-02-10",0.999,0.949],["2025-02-11",0.96,0.933],["2025-02-12",0.976,0.962],["2025-02-13",0.913,0.971],["2025-02-14",1.035,1.007],["2025-02-15",1.214,1.091],["2025-02-16",1.037,1.015],["2025-02-17",1.01,0.978],["2025-02-18",1.008,0.924],["2025-02-19",0.998,0.936],["2025-02-20",1.086,0.94],["2025-02-21",1.076,1.006],["2025-02-22",1.178,1.074],["2025-02-23",1.043,0.982],["2025-02-24",0.994,0.938],["2025-02-25",1.03,0.96],["2025-02-26",0.968,0.935],["2025-02-27",0.993,0.935],["2025-02-28",1.033,0.974],["2025-03-01",1.077,1.09],["2025-03-02",1.016,0.984],["2025-03-03",0.97,0.976],["2025-03-04",0.964,0.931],["2025-03-05",0.963,0.967],["2025-03-06",0.965,0.953],["2025-03-07",0.986,1.003],["2025-03-08",1.062,1.087],["2025-03-09",0.948,1.027],["2025-03-10",0.891,0.97],["2025-03-11",0.964,0.906],["2025-03-12",1.051,0.921],["2025-03-13",0.853,0.926],["2025-03-14",0.845,0.995],["2025-03-15",1.157,1.084],["2025-03-16",1.12,0.971],["2025-03-17",0.979,0.921],["2025-03-18",0.974,0.946],["2025-03-19",0.956,0.951],["2025-03-20",0.977,0.948],["2025-03-21",1.034,1.097],["2025-03-22",1.153,1.129],["2025-03-23",1.064,0.923],["2025-03-24",0.954,0.985],["2025-03-25",0.978,0.953],["2025-03-26",0.926,0.96],["2025-03-27",0.952,0.978],["2025-03-28",0.969,1.009],["2025-03-29",1.072,1.127],["2025-03-30",1.001,1.017],["2025-03-31",0.943,0.99],["2025-04-01",0.878,0.952],["2025-04-02",0.924,0.96],["2025-04-03",0.888,0.93],["2025-04-04",0.953,0.985],["2025-04-05",1.158,1.056],["2025-04-06",0.984,0.942],["2025-04-07",0.993,0.951],["2025-04-08",0.961,0.914],["2025-04-09",1.106,1.043],["2025-04-10",1.054,0.922],["2025-04-11",1.134,1.008],["2025-04-12",1.143,1.082],["2025-04-13",1.079,0.989],["2025-04-14",1.07,0.969],["2025-04-15",1.014,0.961],["2025-04-16",1.008,0.971],["2025-04-17",1.039,0.958],["2025-04-18",1.024,1.049],["2025-04-19",1.191,1.124],["2025-04-20",1.105,1.021],["2025-04-21",1.058,0.983],["2025-04-22",0.975,0.951],["2025-04-23",0.949,0.964],["2025-04-24",1.006,0.957],["2025-04-25",1.109,0.989],["2025-04-26",1.153,1.109],["2025-04-27",0.977,1.013],["2025-04-28",1.014,0.945],["2025-04-29",1.019,0.977],["2025-04-30",1.026,0.938],["2025-05-01",0.996,0.927],["2025-05-02",1.042,0.998],["2025-05-03",1.089,1.117],["2025-05-04",0.988,0.993],["2025-05-05",1.038,0.987],["2025-05-06",0.98,0.947],["2025-05-07",0.959,0.992],["2025-05-08",1.034,0.974],["2025-05-09",1.069,1.038],["2025-05-10",1.076,1.128],["2025-05-11",0.927,1.089],["2025-05-12",0.983,1.006],["2025-05-13",0.907,0.985],["2025-05-14",0.909,0.985],["2025-05-15",0.933,1.001],["2025-05-16",0.937,1.059],["2025-05-17",1.12,1.121],["2025-05-18",1.077,1.079],["2025-05-19",1.006,1.048],["2025-05-20",1.075,1.023],["2025-05-21",1.047,1.034],["2025-05-22",1.059,1.035],["2025-05-23",1.096,1.116],["2025-05-24",1.321,1.206],["2025-05-25",1.094,1.121],["2025-05-26",1.103,1.079],["2025-05-27",1.095,1.1],["2025-05-28",1.11,1.104],["2025-05-29",1.106,1.132],["2025-05-30",1.216,1.172],["2025-05-31",1.326,1.244],["2025-06-01",1.191,1.129],["2025-06-02",1.151,1.122],["2025-06-03",1.132,1.089],["2025-06-04",1.105,1.074],["2025-06-05",1.128,1.053],["2025-06-06",1.316,1.132],["2025-06-07",1.29,1.201],["2025-06-08",1.256,1.078],["2025-06-09",1.161,1.037],["2025-06-10",1.17,1.027],["2025-06-11",1.14,1.011],["2025-06-12",1.154,1.006],["2025-06-13",1.195,1.049],["2025-06-14",1.297,1.164],["2025-06-15",1.208,1.044],["2025-06-16",1.028,1.026],["2025-06-17",0.971,0.968],["2025-06-18",0.923,0.989],["2025-06-19",0.885,0.963],["2025-06-20",0.968,1.038],["2025-06-21",1.02,1.077],["2025-06-22",0.929,1.025],["2025-06-23",0.856,0.988],["2025-06-24",0.909,0.98],["2025-06-25",0.88,0.973],["2025-06-26",0.901,0.973],["2025-06-27",0.918,1.029],["2025-06-28",0.946,1.091],["2025-06-29",0.919,0.978],["2025-06-30",0.892,0.943],["2025-07-01",0.846,0.924],["2025-07-02",0.855,0.94],["2025-07-03",0.811,0.916],["2025-07-04",0.856,0.991],["2025-07-05",0.945,1.112],["2025-07-06",0.909,0.977],["2025-07-07",0.882,0.963],["2025-07-08",0.891,0.946],["2025-07-09",0.917,0.951],["2025-07-10",0.96,0.933],["2025-07-11",0.964,1.013],["2025-07-12",1.02,1.1],["2025-07-13",0.949,1.016],["2025-07-14",0.851,0.961],["2025-07-15",0.905,0.962],["2025-07-16",0.839,0.975],["2025-07-17",0.885,0.973],["2025-07-18",0.949,1.025],["2025-07-19",0.997,1.105],["2025-07-20",0.973,1.034],["2025-07-21",0.88,0.959],["2025-07-22",0.871,0.933],["2025-07-23",0.859,0.94],["2025-07-24",0.889,0.943],["2025-07-25",0.966,0.984],["2025-07-26",1.012,1.037],["2025-07-27",0.974,0.962],["2025-07-28",0.842,0.894],["2025-07-29",0.836,0.903],["2025-07-30",0.868,0.901],["2025-07-31",0.86,0.962]]};
+
+// MODEL START ---------------------------------------------------------------
+const CAP = 90, BASE = 1100, H = 60, LEVELS = [0.85, 0.90, 1.00, 1.10, 1.20, 1.30], BASE_IDX = 2;
+const CURVE = DATA.curve;
+
+function makeMarket(e, D0) {
+  return { e, D0, pe: LEVELS.map(f => Math.pow(f, -e)), cache: new Map() };
+}
+function lam(m, level, d, a) { return m.D0 * level * CURVE[d] * m.pe[a]; }
+
+// Best fare for every (days out, seats left), by dynamic programming. Same maths as pricing_sim.optimal_fares.
+function dpTable(m, level, maxIdx, seatValue) {
+  level = Math.round(level * 100) / 100;
+  const key = level + "|" + maxIdx + "|" + seatValue;
+  const hit = m.cache.get(key);
+  if (hit) return hit;
+  const W = CAP + 1;
+  const best = new Uint8Array((H + 1) * W);
+  let V = new Float64Array(W);
+  const bestVal = new Float64Array(W);
+  const pmf = new Float64Array(W);
+  for (let d = 0; d <= H; d++) {
+    bestVal.fill(-Infinity);
+    for (let a = 0; a <= maxIdx; a++) {
+      const L = lam(m, level, d, a);
+      let p = Math.exp(-L), cum = p, K = 0;
+      pmf[0] = p;
+      while (K < CAP && cum < 1 - 1e-13) { K++; p = p * L / K; pmf[K] = p; cum += p; }
+      const r = LEVELS[a] * BASE + seatValue;
+      for (let s = 0; s <= CAP; s++) {
+        let ev = 0, below = 0;
+        const kmax = Math.min(s - 1, K);
+        for (let k = 0; k <= kmax; k++) { ev += pmf[k] * (k * r + V[s - k]); below += pmf[k]; }
+        ev += (1 - below) * (s * r + V[0]);      // demand beyond the seats left: sell out
+        if (ev > bestVal[s]) { bestVal[s] = ev; best[d * W + s] = a; }
+      }
+    }
+    V = Float64Array.from(bestVal);
+  }
+  const out = { best, V };
+  m.cache.set(key, out);
+  return out;
+}
+
+function rng(seed) {             // mulberry32
+  let t = seed >>> 0;
+  return () => { t += 0x6D2B79F5; let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
+}
+function uniforms(seed) { const g = rng(seed); return Array.from({ length: H + 1 }, g); }
+function poissonInv(u, L) {      // smallest k with CDF(k) >= u
+  let p = Math.exp(-L), c = p, k = 0;
+  while (c < u && k < 1000) { k++; p *= L / k; c += p; }
+  return k;
+}
+
+// One booking window. pricer: "fixed" | "forecast" | "reforecast" | "ceiling"
+function simulate(pricer, m, level, forecast, U, maxIdx, seatValue) {
+  let seats = CAP, sold = 0, exposure = 0, revenue = 0;
+  const days = [];
+  const PRIOR = 100;             // forecast uncertainty: coefficient of variation 10%
+  for (let step = 0; step <= H; step++) {
+    const d = H - step;
+    let a, est = null;
+    if (pricer === "fixed") a = BASE_IDX;
+    else {
+      if (pricer === "ceiling") est = level;
+      else if (pricer === "forecast") est = forecast;
+      else est = (PRIOR + sold) / (PRIOR / forecast + exposure);
+      a = dpTable(m, est, maxIdx, seatValue).best[d * (CAP + 1) + seats];
+    }
+    const demand = poissonInv(U[step], lam(m, level, d, a));
+    const got = Math.min(demand, seats);
+    days.push({ d, a, seatsBefore: seats, demand, got, est });
+    revenue += got * LEVELS[a] * BASE;
+    seats -= got; sold += got;
+    exposure += lam(m, 1.0, d, a);
+  }
+  return { revenue, sold, seats, days };
+}
+// MODEL END -----------------------------------------------------------------
+
+const DEPS = DATA.departures.map(([date, level, forecast]) => ({ date: new Date(date + "T00:00:00"), iso: date, level, forecast }));
+const $ = id => document.getElementById(id);
+const fmtR = x => "₹" + Math.round(x).toLocaleString("en-US");
+const pct = (x, dp = 1) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(dp) + "%";
+const signR = x => (x >= 0 ? "+" : "−") + fmtR(Math.abs(x));
+const fmtDate = dt => dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+const FARE_TXT = LEVELS.map(f => fmtR(f * BASE));
+const FARE_PCT = LEVELS.map(f => f === 1 ? "base" : (f > 1 ? "+" : "−") + Math.round(Math.abs(f - 1) * 100) + "%");
+
+// --- departure picker and scenario presets ---
+const depSel = $("dep");
+DEPS.forEach((dp, i) => {
+  const o = document.createElement("option");
+  o.value = i;
+  o.textContent = `${fmtDate(dp.date)} · ${dp.level.toFixed(2)}×`;
+  depSel.appendChild(o);
+});
+const byLevel = DEPS.map((d, i) => i).sort((a, b) => DEPS[a].level - DEPS[b].level);
+const weekdayIdx = DEPS.map((d, i) => i).filter(i => [1, 2, 3].includes(DEPS[i].date.getDay()));
+const quietIdx = weekdayIdx.reduce((b, i) => DEPS[i].level < DEPS[b].level && DEPS[i].level > 0.72 ? i : b, weekdayIdx.find(i => DEPS[i].level > 0.72));
+const avgIdx = DEPS.map((d, i) => i).reduce((b, i) => Math.abs(DEPS[i].level - 1) + Math.abs(DEPS[i].forecast - 1) < Math.abs(DEPS[b].level - 1) + Math.abs(DEPS[b].forecast - 1) ? i : b, 0);
+const satIdx = DEPS.map((d, i) => i).filter(i => DEPS[i].date.getDay() === 6);
+const busyIdx = satIdx.reduce((b, i) => DEPS[i].level > DEPS[b].level ? i : b, satIdx[0]);
+const surpriseIdx = DEPS.map((d, i) => i).reduce((b, i) => DEPS[i].level / DEPS[i].forecast > DEPS[b].level / DEPS[b].forecast ? i : b, 0);
+
+const SCENARIOS = [
+  { name: "Average day (headline case)", dep: avgIdx, eps: 1.2, d0: 75, pricer: "reforecast", sv: 0, cap: 5 },
+  { name: "Busy Saturday, relaxed travellers", dep: busyIdx, eps: 0.8, d0: 95, pricer: "reforecast", sv: 0, cap: 5 },
+  { name: "Quiet weekday, price-sensitive", dep: quietIdx, eps: 1.6, d0: 70, pricer: "reforecast", sv: 0, cap: 5 },
+  { name: "Forecast was too low", dep: surpriseIdx, eps: 1.2, d0: 85, pricer: "forecast", sv: 0, cap: 5 },
+  { name: "Fairness guard-rail", dep: busyIdx, eps: 0.8, d0: 95, pricer: "reforecast", sv: 1100, cap: 5 },
+];
+const scenBox = $("scenarios");
+SCENARIOS.forEach((s, i) => {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip"; b.textContent = s.name; b.dataset.i = i; b.setAttribute("aria-pressed", "false");
+  b.addEventListener("click", () => applyScenario(i));
+  scenBox.appendChild(b);
+});
+function applyScenario(i) {
+  const s = SCENARIOS[i];
+  depSel.value = s.dep; $("eps").value = s.eps; $("d0").value = s.d0; $("sv").value = s.sv; $("cap").value = s.cap;
+  document.querySelector(`input[name="pricer"][value="${s.pricer}"]`).checked = true;
+  schedule(i);
+}
+document.querySelectorAll("[data-q]").forEach(b => b.addEventListener("click", () => {
+  depSel.value = { quiet: quietIdx, avg: avgIdx, busy: busyIdx }[b.dataset.q]; schedule();
+}));
+
+let seed = 17;
+$("reseed").addEventListener("click", () => { seed = (seed * 7919 + 101) % 100000; schedule(activeScenario); });
+["dep", "eps", "d0", "sv", "cap"].forEach(id => $(id).addEventListener("input", () => schedule()));
+document.querySelectorAll('input[name="pricer"]').forEach(r => r.addEventListener("change", () => schedule()));
+
+let market = null, timer = null, activeScenario = null;
+function schedule(scen = null) {
+  activeScenario = scen;
+  document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", String(Number(c.dataset.i) === scen)));
+  $("results").classList.add("busy");
+  clearTimeout(timer);
+  timer = setTimeout(update, 40);
+}
+
+function readState() {
+  return {
+    dep: DEPS[Number(depSel.value)], eps: Number($("eps").value), d0: Number($("d0").value),
+    pricer: document.querySelector('input[name="pricer"]:checked').value,
+    sv: Number($("sv").value), cap: Number($("cap").value),
+  };
+}
+
+// --- SVG helpers ---
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const el = (tag, attrs, inner = "") => `<${tag} ${Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(" ")}>${inner}</${tag}>`;
+
+function dayAxis(x0, slot, yBase, every = 10) {
+  let s = "";
+  for (let d = H; d >= 0; d -= every) {
+    const x = x0 + (H - d + 0.5) * slot;
+    s += el("text", { x, y: yBase + 16, "text-anchor": "middle" }, d);
+  }
+  s += el("text", { x: x0 + (H + 1) * slot, y: yBase + 30, "text-anchor": "end" }, "days before departure →");
+  return s;
+}
+
+function drawFare(opt) {
+  const W = 720, Hh = 270, x0 = 58, x1 = W - 12, y0 = 10, yFareBot = 160, b0 = 182, y1 = Hh - 40;
+  const slot = (x1 - x0) / (H + 1);
+  const yF = f => yFareBot - (f - 920) / (1445 - 920) * (yFareBot - y0);
+  let s = "";
+  LEVELS.forEach((f, i) => {
+    const y = yF(f * BASE);
+    s += el("line", { x1: x0, x2: x1, y1: y, y2: y, class: "gridline" });
+    s += el("text", { x: x0 - 8, y: y + 4, "text-anchor": "end" }, FARE_TXT[i]);
+  });
+  s += el("line", { x1: x0, x2: x1, y1: y1, y2: y1, class: "axis" });
+  s += el("text", { x: x0 - 8, y: b0 + 10, "text-anchor": "end" }, "booked");
+  s += el("path", { d: `M${x0} ${yF(BASE)} H${x1}`, class: "fixed" });
+  let p = "";
+  opt.days.forEach((day, i) => {
+    const y = yF(LEVELS[day.a] * BASE), xa = x0 + i * slot, xb = xa + slot;
+    p += (i === 0 ? `M${xa} ${y}` : ` V${y}`) + ` H${xb}`;
+  });
+  s += el("path", { d: p, class: "opt" });
+  // bookings per day, as faint bars along the bottom (dynamic pricer)
+  const maxGot = Math.max(1, ...opt.days.map(d => d.got));
+  opt.days.forEach((day, i) => {
+    if (!day.got) return;
+    const h = (y1 - b0) * day.got / maxGot;
+    s += el("rect", { x: x0 + i * slot + 1, y: y1 - h, width: Math.max(1, slot - 2), height: h, fill: `var(--f${day.a})` });
+  });
+  s += el("text", { x: x1, y: b0 - 6, "text-anchor": "end" }, `bookings per day (peak ${maxGot})`);
+  s += dayAxis(x0, slot, y1);
+  $("fareChart").innerHTML = s;
+}
+
+function drawSeats(opt, fix) {
+  const W = 720, Hh = 210, x0 = 58, x1 = W - 12, y0 = 10, y1 = Hh - 40;
+  const slot = (x1 - x0) / (H + 1);
+  const yS = v => y1 - v / CAP * (y1 - y0);
+  let s = "";
+  [0, 30, 60, 90].forEach(v => {
+    s += el("line", { x1: x0, x2: x1, y1: yS(v), y2: yS(v), class: v ? "gridline" : "axis" });
+    s += el("text", { x: x0 - 8, y: yS(v) + 4, "text-anchor": "end" }, v);
+  });
+  const line = r => r.days.map((d, i) => `${i ? "L" : "M"}${x0 + i * slot} ${yS(d.seatsBefore)}`).join(" ") + ` L${x1} ${yS(r.seats)}`;
+  s += el("path", { d: line(fix), class: "fixed" });
+  s += el("path", { d: line(opt), class: "opt" });
+  const so = fix.days.find(d => d.seatsBefore - d.got === 0);
+  if (so && so.d > 0) {
+    const i = H - so.d, x = x0 + (i + 1) * slot;
+    s += el("circle", { cx: x, cy: yS(0), r: 4, fill: "var(--fixed)" });
+    s += el("text", { x: x - 6, y: yS(0) - 10, "text-anchor": "end", class: "ann" }, `Fixed fare sold out ${so.d === 1 ? "on the Tatkal day" : `${so.d} days out`}`);
+  }
+  s += dayAxis(x0, slot, y1);
+  $("seatChart").innerHTML = s;
+}
+
+function drawHeat(table, opt, note) {
+  const W = 640, Hh = 330, x0 = 40, x1 = W - 8, y0 = 8, y1 = Hh - 40;
+  const slot = (x1 - x0) / (H + 1), rowH = (y1 - y0) / (CAP + 1);
+  let s = "";
+  for (let i = 0; i <= H; i++) {
+    const d = H - i;
+    let start = 1;
+    for (let seats = 2; seats <= CAP + 1; seats++) {
+      const a = table.best[d * (CAP + 1) + start];
+      if (seats === CAP + 1 || table.best[d * (CAP + 1) + seats] !== a) {
+        const yTop = y1 - seats * rowH;
+        s += el("rect", { x: (x0 + i * slot).toFixed(2), y: yTop.toFixed(2), width: (slot + 0.4).toFixed(2), height: ((seats - start) * rowH + 0.4).toFixed(2), fill: `var(--f${a})` });
+        start = seats;
+      }
+    }
+  }
+  [0, 30, 60, 90].forEach(v => s += el("text", { x: x0 - 6, y: y1 - (v + 0.5) * rowH + 4, "text-anchor": "end" }, v));
+  const pts = opt.days.map((d, i) => `${(x0 + (i + 0.5) * slot).toFixed(1)},${(y1 - (d.seatsBefore + 0.5) * rowH).toFixed(1)}`).join(" ");
+  s += el("polyline", { points: pts, fill: "none", stroke: "var(--panel)", "stroke-width": 5, "stroke-linejoin": "round", opacity: "0.9" });
+  s += el("polyline", { points: pts, fill: "none", stroke: "var(--ink)", "stroke-width": 2, "stroke-linejoin": "round" });
+  s += dayAxis(x0, slot, y1);
+  s += el("text", { x: 4, y: y0 + 10, "text-anchor": "start" }, "seats");
+  $("heat").innerHTML = s;
+  $("heatCap").textContent = note;
+}
+
+function drawGrid(id, r) {
+  const cells = [];
+  r.days.forEach(d => { for (let k = 0; k < d.got; k++) cells.push(`<span class="f${d.a}" title="${FARE_TXT[d.a]}, booked ${d.d} days out"></span>`); });
+  while (cells.length < CAP) cells.push('<span class="empty" title="Empty seat"></span>');
+  $(id).innerHTML = cells.join("");
+}
+
+function drawCurve() {
+  const W = 520, Hh = 200, x0 = 40, x1 = W - 8, y0 = 8, y1 = Hh - 40;
+  const slot = (x1 - x0) / (H + 1), max = 0.28;
+  let s = "";
+  [0, 0.1, 0.2].forEach(v => {
+    const y = y1 - v / max * (y1 - y0);
+    s += el("line", { x1: x0, x2: x1, y1: y, y2: y, class: v ? "gridline" : "axis" });
+    s += el("text", { x: x0 - 6, y: y + 4, "text-anchor": "end" }, (v * 100) + "%");
+  });
+  CURVE.forEach((c, d) => {
+    const i = H - d, h = c / max * (y1 - y0);
+    s += el("rect", { x: x0 + i * slot + 0.5, y: y1 - h, width: Math.max(1, slot - 1), height: h, fill: d <= 1 ? "var(--f4)" : "var(--opt)", opacity: d <= 1 ? "1" : "0.75" });
+  });
+  s += el("text", { x: x1 - 30, y: y1 - (CURVE[1] / max) * (y1 - y0) + 2, "text-anchor": "end", class: "ann" }, "Tatkal day");
+  s += dayAxis(x0, slot, y1);
+  $("curveChart").innerHTML = s;
+  const two = (CURVE[0] + CURVE[1] + CURVE[2]) * 100, week = CURVE.slice(0, 8).reduce((a, b) => a + b, 0) * 100;
+  $("curveCap").textContent = `${two.toFixed(0)}% of passengers book within 2 days of departure and ${week.toFixed(0)}% within a week. The pricer has to decide early fares knowing most demand is still to come.`;
+}
+
+function fareLegend(maxIdx) {
+  $("fareLegend").innerHTML = LEVELS.map((f, i) => `<span style="${i > maxIdx ? "opacity:.35" : ""}"><span class="sw f${i}"></span>${FARE_TXT[i]}</span>`).join("");
+}
+
+// --- main update ---
+function update() {
+  const st = readState();
+  if (!market || market.e !== st.eps || market.D0 !== st.d0) market = makeMarket(st.eps, st.d0);
+  const { level, forecast } = st.dep;
+
+  $("eps-v").textContent = st.eps.toFixed(1);
+  $("eps-h").textContent = `A 10% fare rise loses about ${((1 - Math.pow(1.1, -st.eps)) * 100).toFixed(0)}% of bookings; a 15% discount wins about ${((Math.pow(0.85, -st.eps) - 1) * 100).toFixed(0)}% more.`;
+  $("d0-v").textContent = `${st.d0} per 90 seats`;
+  $("sv-v").textContent = st.sv ? fmtR(st.sv) : "Off";
+  $("seed-l").textContent = `Set #${seed}`;
+  const expected = st.d0 * level;
+  $("depfacts").innerHTML = `<span>Actual demand <b>${level.toFixed(2)}×</b></span><span>Forecast <b>${forecast.toFixed(2)}×</b></span><span>Expected at ₹1,100 <b>${expected.toFixed(0)}</b> for 90 seats</span>`;
+
+  // one booking window, same customers for both methods
+  const U = uniforms(seed * 1000 + Number(depSel.value));
+  const fix = simulate("fixed", market, level, forecast, U, st.cap, st.sv);
+  const opt = simulate(st.pricer, market, level, forecast, U, st.cap, st.sv);
+
+  // averages over many windows
+  const N = 600;
+  let rf = 0, ro = 0, rc = 0, sf = 0, so = 0;
+  for (let n = 0; n < N; n++) {
+    const u = uniforms(900001 + n * 7919);
+    const a = simulate("fixed", market, level, forecast, u, st.cap, st.sv);
+    const b = simulate(st.pricer, market, level, forecast, u, st.cap, st.sv);
+    rf += a.revenue; ro += b.revenue; sf += a.sold; so += b.sold;
+    if (st.pricer !== "ceiling") rc += simulate("ceiling", market, level, forecast, u, st.cap, st.sv).revenue;
+  }
+  rf /= N; ro /= N; rc /= N; sf /= N; so /= N;
+  const gainExp = (ro / rf - 1) * 100;
+
+  // KPIs
+  const dRev = opt.revenue - fix.revenue, g = (opt.revenue / fix.revenue - 1) * 100;
+  $("k1").innerHTML = `<span class="${dRev >= 0 ? "pos" : "neg"}">${signR(dRev)}</span>`;
+  $("k1s").textContent = `${fmtR(opt.revenue)} vs ${fmtR(fix.revenue)} at the fixed fare (${pct(g)})`;
+  $("k2").innerHTML = `<span class="${gainExp >= 0 ? "pos" : "neg"}">${pct(gainExp)}</span>`;
+  if (st.pricer === "ceiling") $("k2s").textContent = "This is the most any pricer could earn here.";
+  else {
+    const cg = (rc / rf - 1) * 100;
+    const share = cg > 0.3 && st.sv === 0 ? ` · captures ${Math.min(100, Math.max(0, gainExp / cg * 100)).toFixed(0)}% of it` : "";
+    $("k2s").textContent = `Perfect-information ceiling ${pct(cg)}${share}`;
+  }
+  const dp = (opt.sold / Math.max(1, fix.sold) - 1) * 100;
+  $("k3").innerHTML = `${opt.sold} <span style="font-size:15px;color:var(--muted)">vs ${fix.sold}</span>`;
+  $("k3s").textContent = `On average ${pct((so / sf - 1) * 100)} passengers vs the fixed fare`;
+  $("k4").textContent = opt.sold ? fmtR(opt.revenue / opt.sold) : "–";
+  $("k4s").textContent = opt.sold ? `${pct((opt.revenue / opt.sold / BASE - 1) * 100)} vs ₹1,100` : "";
+
+  // narrative
+  const lost = fix.days.reduce((t, d) => t + d.demand - d.got, 0);
+  const soDay = fix.days.find(d => d.seatsBefore - d.got === 0);
+  let fixTxt;
+  if (soDay && soDay.d > 0) fixTxt = `At a fixed ₹1,100 the coach <b>sold out ${soDay.d === 1 ? "on the Tatkal day" : `${soDay.d} days before departure`}</b> and turned away ${lost} would-be passengers.`;
+  else if (fix.seats > 0) fixTxt = `At a fixed ₹1,100 the coach left <b>${fix.seats} seats empty</b>.`;
+  else fixTxt = `At a fixed ₹1,100 the coach filled exactly on departure day.`;
+  const changes = [];
+  opt.days.forEach((d, i) => { if (i && d.a !== opt.days[i - 1].a) changes.push(d); });
+  const open = FARE_TXT[opt.days[0].a];
+  let optTxt = `The dynamic pricer opened at <b>${open}</b>`;
+  if (changes.length) {
+    const when = d => d.d === 0 ? "on departure day" : d.d === 1 ? "on the Tatkal day" : `${d.d} days out`;
+    const shown = changes.slice(0, 3).map(d => `${FARE_TXT[d.a]} ${when(d)}`).join(", ");
+    optTxt += `, changed the fare ${changes.length} time${changes.length > 1 ? "s" : ""} (${shown}${changes.length > 3 ? ", …" : ""})`;
+  } else optTxt += ` and never needed to change it`;
+  optTxt += opt.seats ? `, and departed with ${opt.seats} empty seat${opt.seats > 1 ? "s" : ""}.` : `, and filled every seat.`;
+  const surprise = Math.abs(level / forecast - 1) > 0.12 ? ` Demand came in <b>${pct((level / forecast - 1) * 100, 0)} vs the forecast</b>${st.pricer === "reforecast" ? ", and the re-forecast picked that up from the bookings" : st.pricer === "forecast" ? ". Switch to daily re-forecasting to see the pricer react" : ""}.` : "";
+  $("story").innerHTML = `<b>${fmtDate(st.dep.date)}</b>: this departure was ${level.toFixed(2)}× an average day. ${fixTxt} ${optTxt}${surprise}`;
+
+  // charts
+  drawFare(opt);
+  drawSeats(opt, fix);
+  const tableLevel = st.pricer === "ceiling" ? level : forecast;
+  drawHeat(dpTable(market, tableLevel, st.cap, st.sv), opt,
+    `Colour = best fare for each number of days and seats left, planned for demand ${tableLevel.toFixed(2)}× (${st.pricer === "ceiling" ? "true demand" : "the forecast"}). The line is the path this departure took.` +
+    (st.pricer === "reforecast" ? " Re-forecasting switches to the table for its latest estimate as bookings arrive." : "") +
+    " Few seats with plenty of time left means a higher fare.");
+  fareLegend(st.cap);
+  drawGrid("gridOpt", opt);
+  drawGrid("gridFix", fix);
+  $("gridOptCap").textContent = `${opt.sold} passengers, ${fmtR(opt.revenue)}. Coloured by fare paid.`;
+  $("gridFixCap").textContent = `${fix.sold} passengers at ₹1,100, ${fmtR(fix.revenue)}${lost ? `; ${lost} turned away after it sold out` : ""}.`;
+  $("results").classList.remove("busy");
+}
+
+drawCurve();
+applyScenario(0);
+</script>
+
+</body>
+</html>
