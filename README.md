@@ -9,7 +9,7 @@
 
 **[Try the interactive pricing demo →](https://manassethi.github.io/DPonTrain/demo/)**
 
-> **Headline:** classic **forecast + optimize** pricing (dynamic programming) earns **+2% to +14% more revenue per departure** than a fixed fare in simulation. That is 95–100% of the theoretical best. Reinforcement learning (Q-learning) captures only 14–76%. On the multi-stop train, **network bid prices add up to +8.5%** over pricing each journey separately. **Valuing each passenger carried** keeps ridership at today's level while still earning **+5.5% to +9.2%**.
+> **Headline:** classic **forecast + optimize** pricing (dynamic programming) earns **+2% to +14% more revenue per departure** than a fixed fare in simulation. That is 95–100% of the theoretical best. Reinforcement learning (Q-learning) captures only 14–76%. Against the airline fare-class method, **fare-adjusted EMSR-b matches the optimizer to within 0.2 points, while textbook EMSR-b loses up to 4.4%** because passengers buy down. On the multi-stop train, **network bid prices add up to +8.5%** over pricing each journey separately. **Valuing each passenger carried** keeps ridership at today's level while still earning **+5.5% to +9.2%**.
 
 ---
 
@@ -20,7 +20,7 @@
 | **Train** | 12138 Punjab Mail, Firozpur Cantt → Mumbai CSMT, 52 stops, 1,930 km |
 | **Data** | About 736,000 tickets (1.9 million passengers) for 730 daily departures, Aug 2023 – Jul 2025; focus on 3A (AC 3-tier) |
 | **Forecasting** | Baselines, Ridge regression, gradient boosting, calendar blend, pickup forecasting; time-based validation |
-| **Pricing** | Fixed fare, pacing rule, Q-learning, dynamic-programming optimizer (with Bayesian re-forecasting), perfect-information ceiling |
+| **Pricing** | Fixed fare, pacing rule, Q-learning, dynamic-programming optimizer (with Bayesian re-forecasting), EMSR-b fare classes (textbook and fare-adjusted), perfect-information ceiling |
 | **Network** | 36 origin–destination journeys over 8 legs; LP and dynamic-programming bid prices |
 | **Stack** | Python, pandas, NumPy, SciPy (Poisson, `linprog` / HiGHS), scikit-learn, Matplotlib, pytest |
 
@@ -156,6 +156,31 @@ One 3A berth is often sold two or three times per run: Firozpur → Delhi, then 
 
 ---
 
+## 4. Benchmark against the airline fare-class method: [`notebooks/04_fare_class_benchmark.ipynb`](notebooks/04_fare_class_benchmark.ipynb)
+
+Airlines usually sell **nested booking classes** with **protection levels** rather than setting a free price each day. The classic method for setting protection levels is **EMSR-b**. In this benchmark:
+- the six fare levels become booking classes;
+- passengers buy the cheapest open class;
+- protection levels are re-solved for the demand still to come and the seats left;
+- two versions are tested:
+  - **textbook EMSR-b**, where classes are treated as independent;
+  - **fare-adjusted EMSR-b**, where each class is valued by the marginal revenue it adds. This is the industry's correction for buy-down.
+
+Same 365 unseen departures, same forecast and same random passengers as above:
+
+| Scenario | Textbook EMSR-b | Fare-adjusted EMSR-b | Dynamic program | Ceiling |
+|---|---|---|---|---|
+| Price-sensitive, spare seats | **−0.2%** | +1.9% | +2.0% | +2.1% |
+| Price-sensitive, oversubscribed | +1.7% | +6.4% | +6.5% | +6.8% |
+| Less price-sensitive, spare seats | **−4.4%** | +6.4% | +6.4% | +6.4% |
+| Less price-sensitive, oversubscribed | +1.8% | +14.0% | +14.0% | +14.0% |
+
+- **Textbook EMSR-b can lose money against a fixed fare.** It opens cheap classes, and passengers who would have paid more buy down into them.
+- **Fare-adjusted EMSR-b lands within 0.2 points of the dynamic program.** The two draw almost the same fare map, so the optimizer agrees with good industry practice rather than beating it.
+- **Re-optimizing only at 8 airline-style data collection points instead of daily** costs at most 0.1 points.
+
+---
+
 ## Interactive demo: **[open the live demo](https://manassethi.github.io/DPonTrain/demo/)**
 
 A single-page simulator ([`demo/index.html`](demo/index.html)) that runs in the browser, with no install. Pick a real departure from the test year, then set:
@@ -193,13 +218,14 @@ It uses the measured booking curve and each test departure's demand level and fo
 ├── notebooks/
 │   ├── 01_demand_forecasting.ipynb
 │   ├── 02_pricing_engine.ipynb
-│   └── 03_network_pricing.ipynb
+│   ├── 03_network_pricing.ipynb
+│   └── 04_fare_class_benchmark.ipynb
 ├── src/
 │   ├── data_loader.py            # loads the booking records (or a synthetic stand-in)
 │   ├── synthetic_data.py         # synthetic bookings with the same columns, for running without the data
 │   ├── pricing_sim.py            # single-coach simulator, policies, dynamic programming, evaluation
 │   └── network_sim.py            # O&D network, LP and bid prices, network policies
-└── tests/                        # 31 tests: simulator maths, optimizer vs simulation, network logic, data
+└── tests/                        # 37 tests: simulator maths, optimizer vs simulation, EMSR-b, network logic, data
 ```
 
 ## Running it

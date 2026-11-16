@@ -24,6 +24,8 @@ Policies compared on the same random demand:
                          dynamic programming (classic revenue management).
                          Optionally re-forecasts every day from bookings so far,
                          caps fares, or values each passenger carried.
+  * EMSRb              - the airline fare-class method: nested booking classes
+                         with EMSR-b protection levels, textbook or fare-adjusted
   * PerfectInformation - the optimizer told the true demand level
                          (the ceiling; not deployable)
 
@@ -300,6 +302,107 @@ class ForecastOptimizer:
             rows = level == lv
             best, _ = optimal_fares(market, lv, self.max_idx, self.seat_value)
             out[rows] = best[state.days_out, state.seats_left[rows]]
+        return out
+
+
+def emsr_b_protection(fares, means):
+    """
+    EMSR-b protection levels for nested fare classes with Poisson demand.
+
+    fares - class fares, sorted from highest to lowest
+    means - expected demand for each class (same order)
+
+    Returns y, where y[j] is the number of seats to protect for classes 0..j
+    against class j + 1. Classes 0..j are pooled into one class with their total
+    demand (Poisson) and demand-weighted average fare, then Littlewood's rule
+    protects y seats while P(pooled demand >= y) >= fare[j+1] / average fare.
+    """
+    fares, means = np.asarray(fares, float), np.asarray(means, float)
+    y = np.zeros(len(fares) - 1)
+    for j in range(len(fares) - 1):
+        mu = means[:j + 1].sum()
+        if mu <= 0:
+            continue
+        ratio = fares[j + 1] / ((fares[:j + 1] * means[:j + 1]).sum() / mu)
+        y[j] = 0.0 if ratio >= 1 else poisson.ppf(1.0 - ratio, mu)
+    return np.maximum.accumulate(y)
+
+
+class EMSRb:
+    """
+    The classic airline fare-class method: nested booking classes with protection
+    levels from EMSR-b. The six fare levels are the booking classes. Each day
+    the protection levels are re-solved for the demand still to come and the seats
+    left, and passengers buy the cheapest open class.
+
+    fare_adjustment=False - textbook EMSR-b. Each class's demand is the passengers
+        whose willingness to pay falls between its fare and the next higher one,
+        and classes are assumed independent. It ignores buy-down: when a cheap class
+        is open, passengers who would have paid more buy it instead.
+    fare_adjustment=True  - EMSR-b on adjusted fares (the marginal-revenue
+        transformation used for price-sensitive demand). Each class is valued by
+        the extra revenue from opening it, (fare_j * Q_j - fare_up * Q_up) / (Q_j - Q_up),
+        where Q is the demand when that class is the cheapest one open. Classes
+        whose adjusted fare is not positive are never opened.
+    reforecast            - update the demand estimate from bookings, as in ForecastOptimizer.
+    reoptimize_at         - days before departure at which protection levels are re-solved
+                            (airline data collection points). None = every day. Between
+                            those days the latest protection levels are applied to the seats left.
+    """
+
+    DATA_COLLECTION_POINTS = (60, 45, 30, 21, 14, 7, 3, 1, 0)
+
+    def __init__(self, fare_adjustment=False, reforecast=False, forecast_cv=0.10, reoptimize_at=None, name=None):
+        self.fare_adjustment = fare_adjustment
+        self.reoptimize_at = None if reoptimize_at is None else np.sort(np.asarray(reoptimize_at))
+        self.reforecast = reforecast
+        self.prior_strength = 1.0 / forecast_cv ** 2
+        self._cache = {}
+        default = "EMSR-b, fare-adjusted" if fare_adjustment else "EMSR-b (textbook)"
+        self.name = name or (default + (", re-forecasting daily" if reforecast else ""))
+
+    def classes(self, market, demand_level, days_out):
+        """Fare indices from highest to lowest, protection levels, and how many classes may open."""
+        key = (id(market), round(float(demand_level), 2), int(days_out))
+        if key in self._cache:
+            return self._cache[key]
+        order = np.arange(len(FARE_LEVELS))[::-1]
+        fares = FARE_LEVELS[order] * BASE_FARE
+        to_come = market.demand_at_base * key[1] * market.share_from[days_out] * market.price_effect[order]
+        increment = np.diff(to_come, prepend=0.0)            # passengers each lower class adds
+        if self.fare_adjustment:
+            revenue = fares * to_come
+            values = np.diff(revenue, prepend=0.0) / np.maximum(increment, 1e-12)
+            n_open = int(np.argmax(values <= 0)) if (values <= 0).any() else len(order)
+        else:
+            values, n_open = fares, len(order)
+        n_open = max(n_open, 1)
+        y = emsr_b_protection(values[:n_open], increment[:n_open]) if n_open > 1 else np.zeros(0)
+        self._cache[key] = (order, y, n_open)
+        return self._cache[key]
+
+    def solve_day(self, days_out):
+        """The most recent re-optimization day at or before today (in days before departure)."""
+        if self.reoptimize_at is None:
+            return days_out
+        later = self.reoptimize_at[self.reoptimize_at >= days_out]
+        return int(later[0]) if len(later) else HORIZON
+
+    def estimate(self, state, market):
+        if not self.reforecast:
+            return np.full(len(state.seats_left), state.forecast)
+        a = self.prior_strength
+        return (a + state.sold) / (a / state.forecast + state.exposure)
+
+    def choose(self, state, market):
+        level = np.round(self.estimate(state, market), 2)
+        out = np.empty(len(level), dtype=int)
+        for lv in np.unique(level):
+            rows = level == lv
+            order, y, n_open = self.classes(market, lv, self.solve_day(state.days_out))
+            # class j + 1 is open while more seats are left than are protected for classes 0..j
+            lowest_open = (y[None, :] < state.seats_left[rows, None]).sum(axis=1)
+            out[rows] = order[lowest_open]
         return out
 
 
