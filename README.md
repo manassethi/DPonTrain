@@ -164,7 +164,7 @@ Airlines usually sell **nested booking classes** with **protection levels** rath
 - protection levels are re-solved for the demand still to come and the seats left;
 - two versions are tested:
   - **textbook EMSR-b**, where classes are treated as independent;
-  - **fare-adjusted EMSR-b**, where each class is valued by the marginal revenue it adds. This is the industry's correction for buy-down.
+  - **fare-adjusted EMSR-b**, where each class is valued by the marginal revenue it adds. This is a published correction for buy-down (Fiig et al. 2010), applied on top of fare-class or bid-price controls rather than replacing them.
 
 Same 365 unseen departures, same forecast and same random passengers as above:
 
@@ -176,7 +176,7 @@ Same 365 unseen departures, same forecast and same random passengers as above:
 | Less price-sensitive, oversubscribed | +1.8% | +14.0% | +14.0% | +14.0% |
 
 - **Textbook EMSR-b can lose money against a fixed fare.** It opens cheap classes, and passengers who would have paid more buy down into them.
-- **Fare-adjusted EMSR-b lands within 0.2 points of the dynamic program.** The two draw almost the same fare map, so the optimizer agrees with good industry practice rather than beating it.
+- **Fare-adjusted EMSR-b lands within 0.2 points of the dynamic program.** The two draw almost the same fare map, so the optimizer agrees with the buy-down-aware version of the fare-class method rather than beating it.
 - **Re-optimizing only at 8 airline-style data collection points instead of daily** costs at most 0.1 points.
 
 ---
@@ -184,6 +184,7 @@ Same 365 unseen departures, same forecast and same random passengers as above:
 ## Interactive demo: **[open the live demo](https://manassethi.github.io/DPonTrain/demo/)**
 
 A single-page simulator ([`demo/index.html`](demo/index.html)) that runs in the browser, with no install. Pick a real departure from the test year, then set:
+- the pricing method: the dynamic program, fare-adjusted EMSR-b or textbook EMSR-b;
 - how price-sensitive passengers are;
 - demand vs capacity;
 - what the pricer knows (forecast only, daily re-forecast, or true demand);
@@ -192,10 +193,11 @@ A single-page simulator ([`demo/index.html`](demo/index.html)) that runs in the 
 The page shows, against the fixed fare and on the same simulated customers:
 - the fare set each day;
 - seats left;
-- the dynamic program's full fare table, with the path the departure took;
+- the full fare table (best fare, or cheapest open class), with the path the departure took;
+- for EMSR-b, the booking-class inventory at each data collection point: protection levels, booking limits and which classes are open;
 - who paid what.
 
-It uses the measured booking curve and each test departure's demand level and forecast. Its dynamic program reproduces `pricing_sim.optimal_fares` exactly.
+It uses the measured booking curve and each test departure's demand level and forecast. Its dynamic program reproduces `pricing_sim.optimal_fares` exactly, and its EMSR-b protection levels match `pricing_sim.EMSRb`.
 
 ---
 
