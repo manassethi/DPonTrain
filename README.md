@@ -199,6 +199,13 @@ The page shows, against the fixed fare and on the same simulated customers:
 
 It uses the measured booking curve and each test departure's demand level and forecast. Its dynamic program reproduces `pricing_sim.optimal_fares` exactly, and its EMSR-b protection levels match `pricing_sim.EMSRb`.
 
+A second **Network** tab prices the coach as 8 legs and 36 origin–destination journeys, as in notebook 3. It compares network bid prices with a per-journey optimizer and fixed seat quotas, all against fixed fares on the same simulated customers, and shows:
+- seats taken on each leg along the route, with each leg's bid price, at any day of the booking window;
+- each leg's bid price over the whole window;
+- every journey's seat cost (the sum of its legs' bid prices), the fare it is offered, and whether it is open.
+
+It uses the journey mix and per-journey booking curves from notebook 3, in aggregate. Its LP bid prices, leg-by-leg bid prices and seat quotas match `network_sim` exactly.
+
 ---
 
 ## Limitations
