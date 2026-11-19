@@ -8,8 +8,7 @@ import pytest
 from scipy.stats import poisson
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from pricing_sim import (BASE_IDX, CAPACITY, FARE_LEVELS, HORIZON, BookingState, EMSRb, FixedFare, ForecastOptimizer,
-                         PacingRule, emsr_b_protection,
+from pricing_sim import (BASE_IDX, CAPACITY, FARE_LEVELS, HORIZON, BookingState, FixedFare, ForecastOptimizer, PacingRule,
                          Market, PerfectInformation, QLearningAgent, booking_curve_from_bookings, optimal_fares,
                          simulate)
 
@@ -119,54 +118,3 @@ def test_arrivals_are_never_negative(market):
     # poisson.ppf(0, mu) is -1: a uniform of exactly 0 must mean no bookings, not a returned seat
     _, sold, _, _ = simulate(FixedFare(), market, 1.0, 1.0, uniforms=np.zeros((3, HORIZON + 1)))
     assert (sold == 0).all()
-
-
-# --- EMSR-b fare-class benchmark --------------------------------------------------
-def test_emsr_b_two_classes_is_littlewoods_rule():
-    # Protect y seats for the high fare while P(high-fare demand >= y) >= low fare / high fare
-    y = emsr_b_protection([1000, 600], [20, 50])
-    assert y[0] == poisson.ppf(1 - 0.6, 20)
-
-
-def test_emsr_b_protection_levels_are_nested():
-    y = emsr_b_protection([1430, 1320, 1210, 1100, 990, 935], [8, 6, 7, 9, 11, 7])
-    assert np.all(np.diff(y) >= 0)
-    assert emsr_b_protection([1000, 1000], [20, 50])[0] == 0      # nothing to protect when fares are equal
-
-
-def _class_policy_fare(policy, market, seats, days_out=HORIZON, forecast=1.0):
-    state = BookingState(days_out, np.array([seats]), np.array([0]), np.array([0.0]), forecast)
-    return policy.choose(state, market)[0]
-
-
-def test_textbook_emsr_b_opens_cheapest_class_when_demand_is_low():
-    curve = np.exp(-np.arange(HORIZON + 1) / 6.0)
-    quiet = Market(curve / curve.sum(), elasticity=1.2, demand_at_base=40)
-    assert _class_policy_fare(EMSRb(), quiet, CAPACITY) == 0
-    # with one seat left, only the top class stays open
-    assert _class_policy_fare(EMSRb(), quiet, 1) == len(FARE_LEVELS) - 1
-
-
-def test_fare_adjustment_closes_discounts_when_revenue_rises_with_fare():
-    # elasticity below 1: a higher fare always earns more, so adjusted fares of cheaper classes are negative
-    curve = np.exp(-np.arange(HORIZON + 1) / 6.0)
-    inelastic = Market(curve / curve.sum(), elasticity=0.8, demand_at_base=60)
-    order, y, n_open = EMSRb(fare_adjustment=True).classes(inelastic, 1.0, HORIZON)
-    assert n_open == 1 and len(y) == 0
-    assert _class_policy_fare(EMSRb(fare_adjustment=True), inelastic, CAPACITY) == len(FARE_LEVELS) - 1
-
-
-def test_fare_adjusted_emsr_b_is_close_to_the_optimizer_and_beats_textbook(market):
-    u = np.random.default_rng(5).random((3000, HORIZON + 1))
-    dp, _, _, _ = simulate(ForecastOptimizer(), market, 1.0, 1.0, uniforms=u)
-    adjusted, _, _, _ = simulate(EMSRb(fare_adjustment=True), market, 1.0, 1.0, uniforms=u)
-    textbook, _, _, _ = simulate(EMSRb(), market, 1.0, 1.0, uniforms=u)
-    assert adjusted.mean() >= 0.985 * dp.mean()
-    assert adjusted.mean() > textbook.mean()
-
-
-def test_data_collection_points_hold_protection_levels_between_reoptimizations():
-    policy = EMSRb(fare_adjustment=True, reoptimize_at=[60, 30, 7, 0])
-    assert policy.solve_day(45) == 60 and policy.solve_day(30) == 30 and policy.solve_day(10) == 30
-    assert policy.solve_day(3) == 7 and policy.solve_day(0) == 0
-    assert EMSRb().solve_day(17) == 17

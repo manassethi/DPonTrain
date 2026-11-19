@@ -103,21 +103,6 @@ input[type="range"] { width: 100%; accent-color: var(--dyn); margin: 2px 0; }
 .seg label:first-of-type { border-left: 0; }
 .seg input:checked + label { background: var(--dyn); color: var(--on-dyn); }
 .seg input:focus-visible + label { outline: 2px solid var(--dyn); outline-offset: -3px; }
-.seg-v { grid-auto-flow: row; }
-.seg-v label { border-left: 0; border-top: 1px solid var(--rule); text-align: left; padding: 7px 10px; display: grid; gap: 1px; }
-.seg-v label:first-of-type { border-top: 0; }
-.seg-v label small { font: 400 11.5px var(--font-ui); opacity: 0.75; }
-.blk.off { opacity: 0.45; }
-.cls-bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
-.cls-bar select { font: 500 13px var(--font-ui); padding: 5px 8px; border: 1px solid var(--rule); border-radius: 5px; background: var(--sheet); color: var(--ink); }
-.cls th, .cls td { padding-inline: 8px; }
-.cls td .chip { display: inline-block; width: 22px; text-align: center; border-radius: 3px; font: 700 12px/18px var(--font-num); margin-right: 8px; color: #16191c; }
-.st { font: 600 11px var(--font-num); letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; }
-.st.open { background: var(--good); color: var(--sheet); }
-.st.posted { background: var(--dyn); color: var(--on-dyn); }
-.st.closed { color: var(--muted); border: 1px solid var(--rule); }
-.st.never { color: var(--bad); border: 1px dashed var(--bad); }
-tr.dim td { color: var(--muted); }
 .btn { font: 500 13px var(--font-ui); padding: 6px 10px; border-radius: 5px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; }
 
 /* results */
@@ -237,16 +222,6 @@ footer a { color: var(--dyn); }
       </div>
 
       <div class="blk">
-        <div class="ctl-head"><span class="lbl" id="method-l">Pricing method</span></div>
-        <div class="seg seg-v" role="radiogroup" aria-labelledby="method-l">
-          <input type="radio" name="method" id="m-dp" value="dp" checked><label for="m-dp">Dynamic program<small>free fare each day</small></label>
-          <input type="radio" name="method" id="m-ea" value="emsra"><label for="m-ea">EMSR-b, fare-adjusted<small>booking classes, buy-down aware</small></label>
-          <input type="radio" name="method" id="m-et" value="emsr"><label for="m-et">EMSR-b, textbook<small>booking classes, independent demand</small></label>
-        </div>
-        <div class="hint" id="method-h"></div>
-      </div>
-
-      <div class="blk">
         <div class="ctl-head"><label for="eps">Price sensitivity ε</label><span class="val" id="eps-v"></span></div>
         <input type="range" id="eps" min="0.6" max="2.0" step="0.1" value="1.2">
         <div class="hint" id="eps-h"></div>
@@ -278,16 +253,16 @@ footer a { color: var(--dyn); }
         </div>
       </div>
 
-      <div class="blk" id="svBlk">
+      <div class="blk">
         <div class="ctl-head"><label for="sv">Value per passenger carried</label><span class="val" id="sv-v"></span></div>
         <input type="range" id="sv" min="0" max="1500" step="100" value="0">
-        <div class="hint" id="sv-h">Fairness guard-rail: the pricer counts this on top of the fare, trading some revenue for ridership.</div>
+        <div class="hint">Fairness guard-rail: the pricer counts this on top of the fare, trading some revenue for ridership.</div>
       </div>
 
       <div class="blk">
         <div class="ctl-head"><span class="lbl">Passengers</span><span class="val" id="seed-l"></span></div>
         <button type="button" class="btn" id="reseed">Draw a new set of passengers</button>
-        <div class="hint">Every method always faces the same passengers.</div>
+        <div class="hint">Both pricers always face the same passengers.</div>
       </div>
     </aside>
 
@@ -296,34 +271,18 @@ footer a { color: var(--dyn); }
         <div class="dep-head"><h2 id="depTitle"></h2><div class="facts" id="facts"></div></div>
         <div class="tbl-scroll">
           <table class="cmp">
-            <thead><tr><th>This booking window</th><th>Fixed ₹1,100</th><th class="dyn" id="cmpH">Dynamic pricer</th><th>Change</th></tr></thead>
+            <thead><tr><th>This booking window</th><th>Fixed ₹1,100</th><th class="dyn">Dynamic pricer</th><th>Change</th></tr></thead>
             <tbody id="cmp"></tbody>
           </table>
         </div>
         <p class="expl" id="expl"></p>
       </div>
 
-      <div class="sheet" id="clsSheet" hidden>
-        <div class="sec-head"><h2>Booking classes</h2><span class="aside">nested fare buckets, highest first · passengers buy the cheapest open class</span></div>
-        <div class="cls-bar">
-          <label for="dcp">Inventory as of</label>
-          <select id="dcp" aria-label="Data collection point"></select>
-          <span id="clsState"></span>
-        </div>
-        <div class="tbl-scroll">
-          <table class="cls">
-            <thead><tr><th>Class</th><th>Fare</th><th id="valH">Value</th><th>Demand to come</th><th>Protected</th><th>Limit</th><th>Status</th></tr></thead>
-            <tbody id="cls"></tbody>
-          </table>
-        </div>
-        <p class="cap" id="clsCap"></p>
-      </div>
-
       <div class="sheet">
         <div class="sec-head">
           <h2>Booking window</h2>
           <span class="aside">Hover or tap a day</span>
-          <div class="legend right"><span><span class="ln"></span><span id="tlLeg">Dynamic pricer</span></span><span><span class="ln fx"></span>Fixed fare</span></div>
+          <div class="legend right"><span><span class="ln"></span>Dynamic pricer</span><span><span class="ln fx"></span>Fixed fare</span></div>
         </div>
         <div class="tl-wrap" id="tlWrap">
           <svg id="tl" viewBox="0 0 760 406" role="img" aria-label="Fare, daily bookings and seats left over the 60-day booking window"></svg>
@@ -333,13 +292,13 @@ footer a { color: var(--dyn); }
 
       <div class="two">
         <div class="sheet">
-          <div class="sec-head"><h2>Fare matrix</h2><span class="aside" id="heatAside">best fare by days and seats left</span></div>
+          <div class="sec-head"><h2>Fare matrix</h2><span class="aside">best fare by days and seats left</span></div>
           <svg id="heat" viewBox="0 0 600 330" role="img" aria-label="Optimal fare for every combination of days before departure and seats left"></svg>
           <div class="legend" id="fareLegend" style="margin-top:8px"></div>
           <p class="cap" id="heatCap"></p>
         </div>
         <div class="sheet">
-          <div class="sec-head"><h2>Fare changes</h2><span class="aside" id="logAside">dynamic pricer</span></div>
+          <div class="sec-head"><h2>Fare changes</h2><span class="aside">dynamic pricer</span></div>
           <div class="log-scroll">
             <table class="log">
               <thead><tr><th>Days out</th><th>Seats left</th><th>Sold</th><th id="estH">Demand est.</th><th>New fare</th></tr></thead>
@@ -372,7 +331,6 @@ footer a { color: var(--dyn); }
         <li><span class="tag assumed">Assumed</span>D₀ and ε. Fares never changed in the data, so these are scenarios to test.</li>
       </ul>
       <p>The pricer solves V(d, s) = max over fares of E[fare × bookings + V(d − 1, s − bookings)] backwards from departure. That gives the fare matrix above: the best fare for every combination of days and seats left.</p>
-      <p><b>EMSR-b</b> is the airline fare-class method. The six fares are nested booking classes. For each cut-off it pools the classes above, and protects seats for them while P(their demand ≥ seats protected) ≥ the lower fare ÷ their average fare (Littlewood's rule). Textbook EMSR-b values each class at its fare and assumes passengers stay in their class. The fare-adjusted version values each class by the extra revenue opening it brings, (fare × Q − fare above × Q above) ÷ (Q − Q above), so it accounts for passengers buying down. Both re-solve the protection levels every day here.</p>
     </div>
     <div>
       <h3 style="font-size:16px">When 3A passengers book</h3>
@@ -557,59 +515,8 @@ function poissonInv(u, L) {      // smallest k with CDF(k) >= u
   return k;
 }
 
-// ---- EMSR-b fare classes. Same maths as pricing_sim.emsr_b_protection and EMSRb.classes.
-const SHARE_FROM = CURVE.map((_, d) => CURVE.slice(0, d + 1).reduce((s, c) => s + c, 0));
-function emsrProtection(fares, means) {   // fares high -> low; y[j] = seats protected for classes 0..j
-  const y = [];
-  for (let j = 0; j < fares.length - 1; j++) {
-    let mu = 0, rev = 0;
-    for (let i = 0; i <= j; i++) { mu += means[i]; rev += fares[i] * means[i]; }
-    let v = 0;
-    if (mu > 0) { const ratio = fares[j + 1] / (rev / mu); v = ratio >= 1 ? 0 : poissonInv(1 - ratio, mu); }
-    y.push(j ? Math.max(v, y[j - 1]) : v);
-  }
-  return y;
-}
-// Classes above the fare ceiling are not sold. adjusted: value each class by its marginal revenue.
-function emsrClasses(m, level, d, maxIdx, adjusted) {
-  level = Math.round(level * 100) / 100;
-  const key = "E" + (adjusted ? 1 : 0) + "|" + level + "|" + d + "|" + maxIdx;
-  const hit = m.cache.get(key);
-  if (hit) return hit;
-  const order = []; for (let a = maxIdx; a >= 0; a--) order.push(a);
-  const fares = order.map(a => LEVELS[a] * BASE);
-  const toCome = order.map(a => m.D0 * level * SHARE_FROM[d] * m.pe[a]);
-  const inc = toCome.map((q, j) => q - (j ? toCome[j - 1] : 0));
-  let values = fares, nOpen = order.length;
-  if (adjusted) {
-    values = fares.map((f, j) => (f * toCome[j] - (j ? fares[j - 1] * toCome[j - 1] : 0)) / Math.max(inc[j], 1e-12));
-    const k = values.findIndex(v => v <= 0);
-    if (k >= 0) nOpen = k;
-  }
-  nOpen = Math.max(nOpen, 1);
-  const y = nOpen > 1 ? emsrProtection(values.slice(0, nOpen), inc.slice(0, nOpen)) : [];
-  const out = { order, fares, toCome, inc, values, nOpen, y };
-  m.cache.set(key, out);
-  return out;
-}
-function emsrChoose(c, seats) {           // cheapest open class: the posted fare
-  let low = 0;
-  for (const p of c.y) if (p < seats) low++;
-  return c.order[low];
-}
-// The fare offered for every (days out, seats left), in the same layout as dpTable
-function emsrTable(m, level, maxIdx, adjusted) {
-  const W = CAP + 1, best = new Uint8Array((H + 1) * W);
-  for (let d = 0; d <= H; d++) {
-    const c = emsrClasses(m, level, d, maxIdx, adjusted);
-    for (let s = 0; s <= CAP; s++) best[d * W + s] = emsrChoose(c, s);
-  }
-  return { best };
-}
-
 // One booking window. pricer: "fixed" | "forecast" | "reforecast" | "ceiling"
-// method: "dp" (dynamic program) | "emsr" (textbook EMSR-b) | "emsra" (fare-adjusted EMSR-b)
-function simulate(pricer, m, level, forecast, U, maxIdx, seatValue, method = "dp") {
+function simulate(pricer, m, level, forecast, U, maxIdx, seatValue) {
   let seats = CAP, sold = 0, exposure = 0, revenue = 0;
   const days = [];
   const PRIOR = 100;             // forecast uncertainty: coefficient of variation 10%
@@ -621,8 +528,7 @@ function simulate(pricer, m, level, forecast, U, maxIdx, seatValue, method = "dp
       if (pricer === "ceiling") est = level;
       else if (pricer === "forecast") est = forecast;
       else est = (PRIOR + sold) / (PRIOR / forecast + exposure);
-      a = method === "dp" ? dpTable(m, est, maxIdx, seatValue).best[d * (CAP + 1) + seats]
-        : emsrChoose(emsrClasses(m, est, d, maxIdx, method === "emsra"), seats);
+      a = dpTable(m, est, maxIdx, seatValue).best[d * (CAP + 1) + seats];
     }
     const demand = poissonInv(U[step], lam(m, level, d, a));
     const got = Math.min(demand, seats);
@@ -898,34 +804,27 @@ const sats = idx.filter(i => DEPS[i].date.getDay() === 6);
 const busyIdx = sats.reduce((b, i) => DEPS[i].level > DEPS[b].level ? i : b, sats[0]);
 const surpriseIdx = idx.reduce((b, i) => DEPS[i].level / DEPS[i].forecast > DEPS[b].level / DEPS[b].forecast ? i : b, 0);
 const SCEN = [
-  { name: "Average day", method: "dp", dep: avgIdx, eps: 1.2, d0: 75, pricer: "reforecast", sv: 0, cap: 5 },
-  { name: "Busy Saturday, relaxed travellers", method: "dp", dep: busyIdx, eps: 0.8, d0: 95, pricer: "reforecast", sv: 0, cap: 5 },
-  { name: "Quiet weekday, price-sensitive", method: "dp", dep: quietIdx, eps: 1.6, d0: 70, pricer: "reforecast", sv: 0, cap: 5 },
-  { name: "Forecast was too low", method: "dp", dep: surpriseIdx, eps: 1.2, d0: 85, pricer: "forecast", sv: 0, cap: 5 },
-  { name: "Fairness guard-rail", method: "dp", dep: busyIdx, eps: 0.8, d0: 95, pricer: "reforecast", sv: 1100, cap: 5 },
-  { name: "Airline method: textbook EMSR-b", method: "emsr", dep: avgIdx, eps: 0.8, d0: 75, pricer: "forecast", sv: 0, cap: 5 },
-  { name: "Airline method: fare-adjusted", method: "emsra", dep: avgIdx, eps: 0.8, d0: 75, pricer: "forecast", sv: 0, cap: 5 },
+  { name: "Average day", dep: avgIdx, eps: 1.2, d0: 75, pricer: "reforecast", sv: 0, cap: 5 },
+  { name: "Busy Saturday, relaxed travellers", dep: busyIdx, eps: 0.8, d0: 95, pricer: "reforecast", sv: 0, cap: 5 },
+  { name: "Quiet weekday, price-sensitive", dep: quietIdx, eps: 1.6, d0: 70, pricer: "reforecast", sv: 0, cap: 5 },
+  { name: "Forecast was too low", dep: surpriseIdx, eps: 1.2, d0: 85, pricer: "forecast", sv: 0, cap: 5 },
+  { name: "Fairness guard-rail", dep: busyIdx, eps: 0.8, d0: 95, pricer: "reforecast", sv: 1100, cap: 5 },
 ];
-const METHOD_NAME = { dp: "Dynamic pricer", emsra: "Fare-adjusted EMSR-b", emsr: "Textbook EMSR-b" };
-const METHOD_TAG = { dp: "", emsra: " · EMSR-b adj.", emsr: " · EMSR-b textbook" };
-const DCP = [60, 45, 30, 21, 14, 7, 3, 1, 0];
-const CLASS_CODE = ["L", "Q", "H", "M", "B", "Y"];   // fare index 0..5, lowest to highest
 const PRICER_TXT = { forecast: "forecast", reforecast: "re-forecast", ceiling: "true demand" };
-$("views").innerHTML = SCEN.map((s, i) => `<li><button type="button" data-i="${i}" aria-current="false"><span class="n">${i + 1}</span><span>${s.name}</span><small>ε ${s.eps} · D₀ ${s.d0} · ${PRICER_TXT[s.pricer]}${METHOD_TAG[s.method]}${s.sv ? " · ₹" + s.sv.toLocaleString("en-US") + "/pax" : ""}</small></button></li>`).join("");
+$("views").innerHTML = SCEN.map((s, i) => `<li><button type="button" data-i="${i}" aria-current="false"><span class="n">${i + 1}</span><span>${s.name}</span><small>ε ${s.eps} · D₀ ${s.d0} · ${PRICER_TXT[s.pricer]}${s.sv ? " · ₹" + s.sv.toLocaleString("en-US") + "/pax" : ""}</small></button></li>`).join("");
 $("views").addEventListener("click", e => { const b = e.target.closest("button"); if (b) applyScenario(Number(b.dataset.i)); });
 function applyScenario(i) {
   const s = SCEN[i];
   depSel.value = s.dep; $("eps").value = s.eps; $("d0").value = s.d0; $("sv").value = s.sv;
   document.querySelector(`input[name="pricer"][value="${s.pricer}"]`).checked = true;
   document.querySelector(`input[name="cap"][value="${s.cap}"]`).checked = true;
-  document.querySelector(`input[name="method"][value="${s.method}"]`).checked = true;
   schedule(i);
 }
 
 let seed = 17, market = null, timer = null, activeScen = null, cur = null;
 $("reseed").addEventListener("click", () => { seed = (seed * 7919 + 101) % 100000; schedule(activeScen); });
 ["dep", "eps", "d0", "sv"].forEach(id => $(id).addEventListener("input", () => schedule()));
-document.querySelectorAll('input[name="pricer"], input[name="cap"], input[name="method"]').forEach(r => r.addEventListener("change", () => schedule()));
+document.querySelectorAll('input[name="pricer"], input[name="cap"]').forEach(r => r.addEventListener("change", () => schedule()));
 function schedule(scen = null) {
   if (activeTab === "net") return scheduleNet();
   activeScen = scen;
@@ -938,7 +837,6 @@ function readState() {
     i: Number(depSel.value), dep: DEPS[Number(depSel.value)], eps: Number($("eps").value), d0: Number($("d0").value),
     pricer: document.querySelector('input[name="pricer"]:checked').value,
     cap: Number(document.querySelector('input[name="cap"]:checked').value), sv: Number($("sv").value),
-    method: document.querySelector('input[name="method"]:checked').value,
   };
 }
 
@@ -1007,7 +905,7 @@ function showTip(clientX) {
   const g = $("tlGuide"); g.setAttribute("x1", gx); g.setAttribute("x2", gx); g.setAttribute("opacity", "0.35");
   const tip = $("tip");
   tip.innerHTML = `<b>${o.d === 0 ? "Departure day" : o.d === 1 ? "1 day out · Tatkal" : o.d + " days out"}</b>` +
-    `<div class="r"><span></span><span class="k">fixed · ${cur.method === "dp" ? "dynamic" : "EMSR-b"}</span></div>` +
+    `<div class="r"><span></span><span class="k">fixed · dynamic</span></div>` +
     `<div class="r"><span class="k">Fare</span><span>${FARE_TXT[f.a]} · ${FARE_TXT[o.a]}</span></div>` +
     `<div class="r"><span class="k">Booked</span><span>${f.got} · ${o.got}</span></div>` +
     `<div class="r"><span class="k">Seats left after</span><span>${f.seatsBefore - f.got} · ${o.seatsBefore - o.got}</span></div>` +
@@ -1082,36 +980,6 @@ function drawCoach(id, run) {
 })();
 const bucketLegend = maxIdx => LEVELS.map((f, i) => `<span style="${i > maxIdx ? "opacity:.35" : ""}"><span class="sw" style="background:var(--f${i})"></span>${FARE_TXT[i]}</span>`).join("");
 
-// ---- booking classes (EMSR-b) -----------------------------------------------------
-$("dcp").innerHTML = DCP.map(d => `<option value="${d}">${d === 0 ? "departure day" : d === 1 ? "1 day out (Tatkal)" : d + " days out"}</option>`).join("");
-$("dcp").addEventListener("change", () => drawClasses());
-function drawClasses() {
-  if (!cur || cur.method === "dp") return;
-  const st = cur.st, adjusted = st.method === "emsra";
-  const d = Number($("dcp").value), day = cur.opt.days[H - d], seats = day.seatsBefore;
-  const c = emsrClasses(market, day.est, d, st.cap, adjusted);
-  const posted = seats > 0 ? emsrChoose(c, seats) : -1;
-  const low = posted < 0 ? -1 : st.cap - posted;
-  $("valH").textContent = adjusted ? "Adj. fare" : "Value";
-  $("clsState").innerHTML = seats ? `<b class="num">${seats}</b> seats left · demand estimate <b class="num">${day.est.toFixed(2)}×</b> · posted fare <b class="num">${FARE_TXT[posted]}</b>` : "sold out before this point";
-  let rows = "";
-  for (let a = LEVELS.length - 1; a >= 0; a--) {
-    const name = `<span class="sw" style="background:var(--f${a})"></span><b>${CLASS_CODE[a]}</b>`;
-    if (a > st.cap) { rows += `<tr class="dim"><td>${name}</td><td>${FARE_TXT[a]}</td><td></td><td></td><td></td><td></td><td><span class="st closed">above ceiling</span></td></tr>`; continue; }
-    const j = st.cap - a, never = j >= c.nOpen;
-    const prot = j === 0 || never ? "—" : c.y[j - 1];
-    const limit = never ? 0 : j === 0 ? seats : Math.max(0, seats - c.y[j - 1]);
-    const status = never ? '<span class="st never">never opens</span>' : seats === 0 ? '<span class="st closed">closed</span>'
-      : j < low ? '<span class="st open">open</span>' : j === low ? '<span class="st posted">open · posted</span>' : '<span class="st closed">closed</span>';
-    const v = c.values[j];
-    rows += `<tr class="${never || j > low ? "dim" : ""}"><td>${name}</td><td>${FARE_TXT[a]}</td><td>${v < 0 ? "−" + fmtR(-v) : fmtR(v)}</td><td>${c.inc[j].toFixed(1)}</td><td>${prot}</td><td>${limit}</td><td>${status}</td></tr>`;
-  }
-  $("cls").innerHTML = rows;
-  $("clsCap").textContent = "Demand to come: extra passengers a class adds over the rest of the window when it is the cheapest one open. Protected: seats held back for the classes above. Limit: seats this class can still sell. Protection levels come from Littlewood's rule on the pooled classes above, re-solved each day for the seats left. " +
-    (adjusted ? "Adjusted fare is the extra revenue per extra passenger when the class opens: a cheaper class also pulls in passengers who would have paid more. A class whose adjusted fare is ≤ 0 loses more to buy-down than it adds, so it never opens."
-              : "Textbook EMSR-b values each class at its fare and treats the classes' demand as separate. It opens cheap classes to fill seats it expects to be empty, but here the passengers it protected seats for buy that cheaper class too.");
-}
-
 // ---- main update ---------------------------------------------------------------
 function update() {
   const st = readState();
@@ -1121,33 +989,25 @@ function update() {
   $("eps-v").textContent = st.eps.toFixed(1);
   $("eps-h").textContent = `+10% fare loses ~${((1 - Math.pow(1.1, -st.eps)) * 100).toFixed(0)}% of bookings; −15% wins ~${((Math.pow(0.85, -st.eps) - 1) * 100).toFixed(0)}% more.`;
   $("d0-v").textContent = `${st.d0} / 90 seats`;
-  const isDP = st.method === "dp", name = METHOD_NAME[st.method], sv = isDP ? st.sv : 0;
-  $("sv-v").textContent = !isDP ? "not used" : st.sv ? fmtR(st.sv) : "off";
-  $("svBlk").classList.toggle("off", !isDP); $("sv").disabled = !isDP;
-  $("method-h").textContent = { dp: "Solves for the best fare every day from days left and seats left.", emsra: "Opens and closes six nested fare classes, valuing each by the extra revenue it brings.", emsr: "Opens and closes six nested fare classes, valuing each at its fare." }[st.method];
-  ["cmpH", "tlLeg"].forEach(id => $(id).textContent = name);
-  $("logAside").textContent = isDP ? "dynamic pricer" : name;
-  $("heatAside").textContent = isDP ? "best fare by days and seats left" : "fare offered (cheapest open class) by days and seats left";
+  $("sv-v").textContent = st.sv ? fmtR(st.sv) : "off";
   $("seed-l").textContent = `set #${seed}`;
   $("pricer-h").textContent = { forecast: "Plans on the calendar forecast made before booking opens.", reforecast: "Starts from the forecast and updates it from bookings each day.", ceiling: "Told the true demand: the ceiling, not achievable." }[st.pricer];
   const g = calGeom[st.i], sel = $("calSel"); sel.setAttribute("x", g.x - 1.5); sel.setAttribute("y", g.y - 1.5);
 
   const U = uniforms(seed * 1000 + st.i);
-  const fix = simulate("fixed", market, level, forecast, U, st.cap, sv);
-  const opt = simulate(st.pricer, market, level, forecast, U, st.cap, sv, st.method);
-  cur = { opt, fix, st, method: st.method };
+  const fix = simulate("fixed", market, level, forecast, U, st.cap, st.sv);
+  const opt = simulate(st.pricer, market, level, forecast, U, st.cap, st.sv);
+  cur = { opt, fix };
 
   const N = 600;
-  let rf = 0, ro = 0, rc = 0, rd = 0, sf = 0, so = 0;
-  const atCeiling = isDP && st.pricer === "ceiling";
+  let rf = 0, ro = 0, rc = 0, sf = 0, so = 0;
   for (let n = 0; n < N; n++) {
     const u = uniforms(900001 + n * 7919);
-    const a = simulate("fixed", market, level, forecast, u, st.cap, sv), b = simulate(st.pricer, market, level, forecast, u, st.cap, sv, st.method);
+    const a = simulate("fixed", market, level, forecast, u, st.cap, st.sv), b = simulate(st.pricer, market, level, forecast, u, st.cap, st.sv);
     rf += a.revenue; ro += b.revenue; sf += a.sold; so += b.sold;
-    if (!atCeiling) rc += simulate("ceiling", market, level, forecast, u, st.cap, sv).revenue;
-    if (!isDP) rd += simulate(st.pricer, market, level, forecast, u, st.cap, sv).revenue;
+    if (st.pricer !== "ceiling") rc += simulate("ceiling", market, level, forecast, u, st.cap, st.sv).revenue;
   }
-  rf /= N; ro /= N; rc /= N; rd /= N; sf /= N; so /= N;
+  rf /= N; ro /= N; rc /= N; sf /= N; so /= N;
 
   // header
   $("depTitle").textContent = fmtDate(st.dep.date, true);
@@ -1170,15 +1030,13 @@ function update() {
   ];
   $("cmp").innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td class="dyn">${r[2]}</td><td>${r[3]}</td></tr>`).join("");
   const ge = (ro / rf - 1) * 100;
-  let ex = `Over <b>600</b> simulated booking windows for this departure, ${isDP ? "the dynamic pricer" : "the " + name.charAt(0).toLowerCase() + name.slice(1) + " policy"} earns <b class="${ge >= 0 ? "pos" : "neg"}">${pct(ge)}</b> revenue and carries <b>${pct((so / sf - 1) * 100)}</b> passengers vs the fixed fare.`;
-  if (atCeiling) ex += " Knowing true demand, this is the most any pricer could earn here.";
+  let ex = `Over <b>600</b> simulated booking windows for this departure, the dynamic pricer earns <b class="${ge >= 0 ? "pos" : "neg"}">${pct(ge)}</b> revenue and carries <b>${pct((so / sf - 1) * 100)}</b> passengers vs the fixed fare.`;
+  if (st.pricer === "ceiling") ex += " Knowing true demand, this is the most any pricer could earn here.";
   else {
     const cg = (rc / rf - 1) * 100;
-    if (!isDP) ex += ` The dynamic program, with the same passengers and information, earns <b>${pct((rd / rf - 1) * 100)}</b>.`;
     ex += ` A pricer that knew the true demand would earn <b>${pct(cg)}</b>`;
-    ex += cg > 0.3 && sv === 0 ? (ge <= 0 ? ", so this captures none of what is possible." : `, so this captures <b>${Math.min(100, ge / cg * 100).toFixed(0)}%</b> of what is possible.`) : ".";
+    ex += cg > 0.3 && st.sv === 0 ? (ge <= 0 ? ", so this captures none of what is possible." : `, so this captures <b>${Math.min(100, ge / cg * 100).toFixed(0)}%</b> of what is possible.`) : ".";
   }
-  if (st.method === "emsr" && ge < (rd / rf - 1) * 100 - 1) ex += ` Its average fare is <b>${fmtR(ro / so)}</b>: it opens cheap classes for "low-fare demand", and the passengers it saved seats for buy those too. Switch to fare-adjusted to see the fix.`;
   const surprise = level / forecast - 1;
   if (Math.abs(surprise) > 0.1) ex += ` Demand came in <b>${pct(surprise * 100, 0)}</b> vs the forecast${st.pricer === "forecast" ? "; switch the pricer to re-forecast to see it adjust." : st.pricer === "reforecast" ? ", and the re-forecast picks this up from bookings." : "."}`;
   $("expl").innerHTML = ex;
@@ -1186,12 +1044,11 @@ function update() {
   drawTimeline(opt, fix);
   hideTip();
   const tableLevel = st.pricer === "ceiling" ? level : forecast;
-  drawHeat(isDP ? dpTable(market, tableLevel, st.cap, sv) : emsrTable(market, tableLevel, st.cap, st.method === "emsra"), opt);
+  drawHeat(dpTable(market, tableLevel, st.cap, st.sv), opt);
   $("fareLegend").innerHTML = bucketLegend(st.cap);
   $("heatCap").textContent = `Planned for demand ${tableLevel.toFixed(2)}× (${st.pricer === "ceiling" ? "true demand" : "the forecast"}). The line is the path this departure took.` +
     (st.pricer === "reforecast" ? " As the estimate moves, the pricer switches to that estimate's matrix." : "") +
-    (isDP ? " Few seats with time to spare means a high fare; many seats close to departure means a discount."
-          : " Each colour is the cheapest class EMSR-b leaves open; the step edges are its protection levels.");
+    " Few seats with time to spare means a high fare; many seats close to departure means a discount.";
 
   // fare-change log
   const showEst = st.pricer === "reforecast";
@@ -1209,11 +1066,9 @@ function update() {
   // coach
   $("coachLegend").innerHTML = bucketLegend(st.cap);
   drawCoach("cDyn", opt); drawCoach("cFix", fix);
-  $("cDynL").innerHTML = `<b>${name}</b><span>${opt.sold} of 90 berths sold · ${fmtR(opt.revenue)}</span>`;
+  $("cDynL").innerHTML = `<b>Dynamic pricer</b><span>${opt.sold} of 90 berths sold · ${fmtR(opt.revenue)}</span>`;
   $("cFixL").innerHTML = `<b>Fixed ₹1,100</b><span>${fix.sold} of 90 berths sold · ${fmtR(fix.revenue)}${spill(fix) ? ` · ${spill(fix)} turned away` : ""}</span>`;
 
-  $("clsSheet").hidden = isDP;
-  drawClasses();
   $("results").classList.remove("busy");
 }
 
